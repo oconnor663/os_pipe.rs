@@ -33,13 +33,6 @@ use std::marker;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-macro_rules! weak {
-    (fn $name:ident($($t:ty),*) -> $ret:ty) => (
-        static $name: ::sys::weak::Weak<unsafe extern fn($($t),*) -> $ret> =
-            ::sys::weak::Weak::new(stringify!($name));
-    )
-}
-
 pub struct Weak<F> {
     name: &'static str,
     addr: AtomicUsize,
