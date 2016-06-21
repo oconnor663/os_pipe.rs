@@ -10,8 +10,8 @@ use libc::c_int;
 mod weak;
 
 pub struct PipePair {
-    read: File,
-    write: File,
+    pub read: File,
+    pub write: File,
 }
 
 unsafe fn pair_from_fds(fds: [c_int; 2]) -> PipePair {
@@ -29,8 +29,8 @@ pub fn pipe() -> io::Result<PipePair> {
     // 2.6.27, however, and because we support 2.6.18 we must detect this
     // support dynamically.
     if cfg!(target_os = "linux") {
-        // TODO: In stdlib, this uses unstable features to be static.
-        let pipe2: weak::Weak<fn(*mut c_int, c_int) -> c_int> = weak::Weak::new("pipe2");
+        // TODO: In stdlib, this uses unstable features to be static. We can use lazy_static.
+        let pipe2: weak::Weak<unsafe extern fn(*mut c_int, c_int) -> c_int> = weak::Weak::new("pipe2");
         if let Some(pipe) = pipe2.get() {
             match cvt_r(|| unsafe { pipe(fds.as_mut_ptr(), libc::O_CLOEXEC) }) {
                 Ok(_) => {
@@ -69,7 +69,15 @@ pub fn cvt_r<F>(mut f: F) -> io::Result<c_int>
 
 #[cfg(test)]
 mod tests {
+    use super::pipe;
+    use std::io::prelude::*;
+
     #[test]
-    fn it_works() {
+    fn pipe_some_data() {
+        let mut pair = pipe().unwrap();
+        pair.write.write_all(b"some stuff").unwrap();
+        let mut out = String::new();
+        pair.read.read_to_string(&mut out).unwrap();
+        assert_eq!(out, "some stuff");
     }
 }
