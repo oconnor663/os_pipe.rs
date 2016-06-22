@@ -5,3 +5,4 @@ authors = ["jacko"]
 
 [dependencies]
 libc = "0.2.*"
+lazy_static = "0.2.*"

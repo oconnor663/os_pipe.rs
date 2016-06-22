@@ -1,5 +1,8 @@
 extern crate libc;
 
+#[macro_use]
+extern crate lazy_static;
+
 use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
@@ -8,6 +11,11 @@ use libc::c_int;
 
 #[macro_use]
 mod weak;
+use weak::Weak;
+
+lazy_static! {
+    static ref PIPE2: Weak<unsafe extern fn(*mut c_int, c_int) -> c_int> = Weak::new("pipe2");
+}
 
 pub struct PipePair {
     pub read: File,
@@ -29,10 +37,8 @@ pub fn pipe() -> io::Result<PipePair> {
     // 2.6.27, however, and because we support 2.6.18 we must detect this
     // support dynamically.
     if cfg!(target_os = "linux") {
-        // TODO: In stdlib, this uses unstable features to be static. We can use lazy_static.
-        let pipe2: weak::Weak<unsafe extern fn(*mut c_int, c_int) -> c_int> = weak::Weak::new("pipe2");
-        if let Some(pipe) = pipe2.get() {
-            match cvt_r(|| unsafe { pipe(fds.as_mut_ptr(), libc::O_CLOEXEC) }) {
+        if let Some(pipe2) = PIPE2.get() {
+            match cvt_r(|| unsafe { pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) }) {
                 Ok(_) => {
                     return Ok(unsafe { pair_from_fds(fds) });
                 }
