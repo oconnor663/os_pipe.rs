@@ -47,7 +47,10 @@ pub fn pipe() -> io::Result<PipePair> {
             }
         }
     }
+
     if unsafe { libc::pipe(fds.as_mut_ptr()) == 0 } {
+        set_cloexec(fds[0]);
+        set_cloexec(fds[1]);
         Ok(unsafe { pair_from_fds(fds) })
     } else {
         Err(io::Error::last_os_error())
@@ -70,6 +73,23 @@ pub fn cvt_r<F>(mut f: F) -> io::Result<c_int>
             Err(ref e) if e.kind() == ErrorKind::Interrupted => {}
             other => return other,
         }
+    }
+}
+
+#[cfg(not(any(target_env = "newlib", target_os = "solaris", target_os = "emscripten")))]
+fn set_cloexec(fd: c_int) {
+    unsafe {
+        let ret = libc::ioctl(fd, libc::FIOCLEX);
+        debug_assert_eq!(ret, 0);
+    }
+}
+
+#[cfg(any(target_env = "newlib", target_os = "solaris", target_os = "emscripten"))]
+fn set_cloexec(fd: c_int) {
+    unsafe {
+        let previous = libc::fcntl(fd, libc::F_GETFD);
+        let ret = libc::fcntl(fd, libc::F_SETFD, previous | libc::FD_CLOEXEC);
+        debug_assert_eq!(ret, 0);
     }
 }
 
