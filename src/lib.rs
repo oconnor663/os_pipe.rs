@@ -76,6 +76,7 @@ mod tests {
     fn pipe_some_data() {
         let mut pair = pipe().unwrap();
         pair.write.write_all(b"some stuff").unwrap();
+        drop(pair.write);
         let mut out = String::new();
         pair.read.read_to_string(&mut out).unwrap();
         assert_eq!(out, "some stuff");
