@@ -100,16 +100,73 @@ pub fn stdio_from_file(file: File) -> Stdio {
 
 #[cfg(test)]
 mod tests {
-    use super::pipe;
     use std::io::prelude::*;
+    use std::process;
+    use std::thread;
 
     #[test]
-    fn pipe_some_data() {
-        let mut pair = pipe().unwrap();
+    fn test_pipe_some_data() {
+        let mut pair = ::pipe().unwrap();
+        // A small write won't fill the pipe buffer, so it won't block this thread.
         pair.write.write_all(b"some stuff").unwrap();
         drop(pair.write);
         let mut out = String::new();
         pair.read.read_to_string(&mut out).unwrap();
         assert_eq!(out, "some stuff");
+    }
+
+    #[test]
+    fn test_pipe_no_data() {
+        let mut pair = ::pipe().unwrap();
+        drop(pair.write);
+        let mut out = String::new();
+        pair.read.read_to_string(&mut out).unwrap();
+        assert_eq!(out, "");
+    }
+
+    #[test]
+    fn test_pipe_a_megabyte_of_data_from_another_thread() {
+        let data = vec![0xff; 1_000_000];
+        let data_copy = data.clone();
+        let ::PipePair { mut read, mut write } = ::pipe().unwrap();
+        let joiner = thread::spawn(move || {
+            write.write_all(&data_copy).unwrap();
+        });
+        let mut out = Vec::new();
+        read.read_to_end(&mut out).unwrap();
+        joiner.join().unwrap();
+        assert_eq!(out, data);
+    }
+
+    #[test]
+    fn test_pipes_are_not_inheritable() {
+        // Create pipes for a child process.
+        let mut input_pipe = ::pipe().unwrap();
+        let mut output_pipe = ::pipe().unwrap();
+        let child_stdin = ::stdio_from_file(input_pipe.read);
+        let child_stdout = ::stdio_from_file(output_pipe.write);
+
+        // Spawn the child. Note that this temporary Command object takes ownership of our copies
+        // of the child's stdin and stdout, and then closes them immediately when it drops. That
+        // stops us from blocking our own read below.
+        let mut child = process::Command::new("cat")
+            .stdin(child_stdin)
+            .stdout(child_stdout)
+            .spawn()
+            .unwrap();
+
+        // Write to the child's stdin. This is a small write, so it shouldn't block.
+        input_pipe.write.write_all(b"hello").unwrap();
+        drop(input_pipe.write);
+
+        // Read from the child's stdout. If this child has accidentally inherited the write end of
+        // its own stdin, then it will never exit, and this read will block forever. That's the
+        // what this test is all about.
+        let mut output = Vec::new();
+        output_pipe.read.read_to_end(&mut output).unwrap();
+        child.wait().unwrap();
+
+        // Confirm that we got the right bytes.
+        assert_eq!(b"hello", &*output);
     }
 }
