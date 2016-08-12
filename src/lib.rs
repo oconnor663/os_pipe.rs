@@ -1,95 +1,66 @@
-extern crate libc;
-
-#[macro_use]
-extern crate lazy_static;
-
 use std::fs::File;
-use std::io;
-use std::io::ErrorKind;
-use std::os::unix::io::FromRawFd;
-use libc::c_int;
-
-#[macro_use]
-mod weak;
-use weak::Weak;
-
-lazy_static! {
-    static ref PIPE2: Weak<unsafe extern fn(*mut c_int, c_int) -> c_int> = Weak::new("pipe2");
-}
 
 pub struct PipePair {
     pub read: File,
     pub write: File,
 }
 
-unsafe fn pair_from_fds(fds: [c_int; 2]) -> PipePair {
-    PipePair {
-        read: File::from_raw_fd(fds[0]),
-        write: File::from_raw_fd(fds[1]),
+pub use sys::pipe;
+
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+mod sys {
+    use std::fs::File;
+    use std::io;
+    use std::os::raw::{c_int, c_void, c_ulong};
+    use std::os::windows::io::FromRawHandle;
+    use std::ptr;
+
+    type DWORD = c_ulong;
+    type HANDLE = LPVOID;
+    type PHANDLE = *mut HANDLE;
+    type BOOL = c_int;
+    type WCHAR = u16;
+    type LPCWSTR = *const WCHAR;
+    type LPVOID = *mut c_void;
+    type LPSECURITY_ATTRIBUTES = *mut SECURITY_ATTRIBUTES;
+
+    #[repr(C)]
+    struct SECURITY_ATTRIBUTES {
+        nLength: DWORD,
+        lpSecurityDescriptor: LPVOID,
+        bInheritHandle: BOOL,
     }
-}
 
-pub fn pipe() -> io::Result<PipePair> {
-    let mut fds = [0; 2];
+    extern "system" {
+        fn CreatePipe(hReadPipe: PHANDLE,
+                      hWritePipe: PHANDLE,
+                      nSize: DWORD,
+                      lpPipeAttributes: LPSECURITY_ATTRIBUTES)
+                      -> BOOL;
+    }
 
-    // Unfortunately the only known way right now to create atomically set the
-    // CLOEXEC flag is to use the `pipe2` syscall on Linux. This was added in
-    // 2.6.27, however, and because we support 2.6.18 we must detect this
-    // support dynamically.
-    if cfg!(target_os = "linux") {
-        if let Some(pipe2) = PIPE2.get() {
-            match cvt_r(|| unsafe { pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) }) {
-                Ok(_) => {
-                    return Ok(unsafe { pair_from_fds(fds) });
-                }
-                Err(ref e) if e.raw_os_error() == Some(libc::ENOSYS) => {}
-                Err(e) => return Err(e),
+    pub fn pipe() -> io::Result<::PipePair> {
+        let mut readPipe: HANDLE = ptr::null_mut();
+        let mut writePipe: HANDLE = ptr::null_mut();
+
+        let ret = unsafe {
+            CreatePipe(&mut readPipe as PHANDLE,
+                       &mut writePipe as PHANDLE,
+                       0,
+                       ptr::null_mut())
+        };
+
+        if ret == 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            unsafe {
+                Ok(::PipePair {
+                    read: File::from_raw_handle(readPipe),
+                    write: File::from_raw_handle(writePipe),
+                })
             }
         }
-    }
-
-    if unsafe { libc::pipe(fds.as_mut_ptr()) == 0 } {
-        set_cloexec(fds[0]);
-        set_cloexec(fds[1]);
-        Ok(unsafe { pair_from_fds(fds) })
-    } else {
-        Err(io::Error::last_os_error())
-    }
-}
-
-pub fn cvt(t: c_int) -> io::Result<c_int> {
-    if t == -1 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(t)
-    }
-}
-
-pub fn cvt_r<F>(mut f: F) -> io::Result<c_int>
-    where F: FnMut() -> c_int
-{
-    loop {
-        match cvt(f()) {
-            Err(ref e) if e.kind() == ErrorKind::Interrupted => {}
-            other => return other,
-        }
-    }
-}
-
-#[cfg(not(any(target_env = "newlib", target_os = "solaris", target_os = "emscripten")))]
-fn set_cloexec(fd: c_int) {
-    unsafe {
-        let ret = libc::ioctl(fd, libc::FIOCLEX);
-        debug_assert_eq!(ret, 0);
-    }
-}
-
-#[cfg(any(target_env = "newlib", target_os = "solaris", target_os = "emscripten"))]
-fn set_cloexec(fd: c_int) {
-    unsafe {
-        let previous = libc::fcntl(fd, libc::F_GETFD);
-        let ret = libc::fcntl(fd, libc::F_SETFD, previous | libc::FD_CLOEXEC);
-        debug_assert_eq!(ret, 0);
     }
 }
 
