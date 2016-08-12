@@ -6,7 +6,8 @@ extern crate lazy_static;
 use std::fs::File;
 use std::io;
 use std::io::ErrorKind;
-use std::os::unix::io::FromRawFd;
+use std::os::unix::io::{FromRawFd, IntoRawFd};
+use std::process::Stdio;
 use libc::c_int;
 
 #[macro_use]
@@ -57,7 +58,7 @@ pub fn pipe() -> io::Result<PipePair> {
     }
 }
 
-pub fn cvt(t: c_int) -> io::Result<c_int> {
+fn cvt(t: c_int) -> io::Result<c_int> {
     if t == -1 {
         Err(io::Error::last_os_error())
     } else {
@@ -65,7 +66,7 @@ pub fn cvt(t: c_int) -> io::Result<c_int> {
     }
 }
 
-pub fn cvt_r<F>(mut f: F) -> io::Result<c_int>
+fn cvt_r<F>(mut f: F) -> io::Result<c_int>
     where F: FnMut() -> c_int
 {
     loop {
@@ -91,6 +92,10 @@ fn set_cloexec(fd: c_int) {
         let ret = libc::fcntl(fd, libc::F_SETFD, previous | libc::FD_CLOEXEC);
         debug_assert_eq!(ret, 0);
     }
+}
+
+pub fn stdio_from_file(file: File) -> Stdio {
+    unsafe { Stdio::from_raw_fd(file.into_raw_fd()) }
 }
 
 #[cfg(test)]
