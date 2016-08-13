@@ -1,17 +1,20 @@
+// TODO: Figure out why including lazy_static breaks the Windows build.
+#[cfg(not(windows))]
 #[macro_use]
 extern crate lazy_static;
 
+// TODO: Figure out why Windows things we're depending on the unstable libc.
+#[cfg(not(windows))]
 extern crate libc;
-
-use std::fs::File;
 
 #[cfg(not(windows))]
 #[path = "unix.rs"]
 mod sys;
-// TODO
-// #[cfg(windows)]
-// #[path = "windows.rs"]
-// mod sys;
+#[cfg(windows)]
+#[path = "windows.rs"]
+mod sys;
+
+use std::fs::File;
 
 pub use sys::{pipe, stdio_from_file};
 
@@ -23,6 +26,7 @@ pub struct Pair {
 #[cfg(test)]
 mod tests {
     use std::io::prelude::*;
+    use std::path::Path;
     use std::process;
     use std::thread;
     use ::Pair;
@@ -71,8 +75,13 @@ mod tests {
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
-        // stops us from blocking our own read below.
-        let mut child = process::Command::new("cat")
+        // stops us from blocking our own read below. We use our own simple implementation of cat
+        // for compatibility with Windows.
+        let cat_dir = Path::new(".").join("test").join("cat");
+        let mut child = process::Command::new("cargo")
+            .arg("run")
+            .arg("-q")
+            .current_dir(&cat_dir)
             .stdin(child_stdin)
             .stdout(child_stdout)
             .spawn()
