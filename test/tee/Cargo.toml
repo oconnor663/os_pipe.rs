@@ -1,0 +1,9 @@
+[package]
+name = "tee"
+version = "0.1.0"
+authors = ["Jack O'Connor"]
+description = "a simple tee program for (Windows compatible) testing"
+license = "MIT"
+
+[dependencies]
+os_pipe = { path = "../../" }
