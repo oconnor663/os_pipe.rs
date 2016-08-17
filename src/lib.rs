@@ -105,4 +105,37 @@ mod tests {
         // Confirm that we got the right bytes.
         assert_eq!(b"hello", &*output);
     }
+
+    #[test]
+    fn test_duped_handles() {
+        // Create pipes for a child process.
+        let mut input_pipe = ::pipe().unwrap();
+        let child_stdin = ::stdio_from_file(input_pipe.read);
+
+        // Write input. This shouldn't block because it's small. Then close the write end, or else
+        // the child will hang.
+        input_pipe.write.write_all(b"quack").unwrap();
+        drop(input_pipe.write);
+
+        // Spawn the child and read its output. This is a tee program that copies its input to both
+        // stdout and stderr. It depends on os_pipe itself, and uses the dup_* handles for all of
+        // its IO.
+        let tee_dir = Path::new(".").join("test").join("tee");
+        let output = process::Command::new("cargo")
+            .arg("run")
+            .arg("-q")
+            .current_dir(&tee_dir)
+            .stdin(child_stdin)
+            .output()
+            .unwrap();
+
+        // Check for a clean exit.
+        assert!(output.status.success(),
+                "child process returned {:#?}",
+                output);
+
+        // Confirm that we got the right bytes.
+        assert_eq!(b"quack", &*output.stdout);
+        assert_eq!(b"quack", &*output.stderr);
+    }
 }
