@@ -16,7 +16,11 @@ mod sys;
 
 use std::fs::File;
 
-pub use sys::{pipe, stdio_from_file};
+pub use sys::pipe;
+pub use sys::stdio_from_file;
+pub use sys::dup_stdin;
+pub use sys::dup_stdout;
+pub use sys::dup_stderr;
 
 pub struct Pair {
     pub read: File,

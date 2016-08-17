@@ -47,6 +47,25 @@ pub fn pipe() -> io::Result<Pair> {
     }
 }
 
+pub fn dup_stdin() -> io::Result<File> {
+    dup_fd(libc::STDIN_FILENO)
+}
+
+pub fn dup_stdout() -> io::Result<File> {
+    dup_fd(libc::STDOUT_FILENO)
+}
+
+pub fn dup_stderr() -> io::Result<File> {
+    dup_fd(libc::STDERR_FILENO)
+}
+
+fn dup_fd(fd: c_int) -> io::Result<File> {
+    unsafe {
+        let new_fd = try!(cvt_r(|| libc::dup(fd)));
+        Ok(File::from_raw_fd(new_fd))
+    }
+}
+
 unsafe fn pair_from_fds(fds: [c_int; 2]) -> Pair {
     Pair {
         read: File::from_raw_fd(fds[0]),
