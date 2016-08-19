@@ -8,7 +8,7 @@ extern crate lazy_static;
 extern crate libc;
 
 #[cfg(not(windows))]
-#[path = "unix.rs"]
+#[path = "unix/mod.rs"]
 mod sys;
 #[cfg(windows)]
 #[path = "windows.rs"]
