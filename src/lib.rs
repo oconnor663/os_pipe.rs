@@ -1,9 +1,6 @@
-// TODO: Figure out why including lazy_static breaks the Windows build.
 #[cfg(not(windows))]
 #[macro_use]
 extern crate lazy_static;
-
-// TODO: Figure out why Windows things we're depending on the unstable libc.
 #[cfg(not(windows))]
 extern crate libc;
 
