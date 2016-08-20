@@ -28,10 +28,10 @@
 
 use libc;
 
-use ffi::CString;
-use marker;
-use mem;
-use sync::atomic::{AtomicUsize, Ordering};
+use std::ffi::CString;
+use std::marker;
+use std::mem;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 macro_rules! weak {
     (fn $name:ident($($t:ty),*) -> $ret:ty) => (

@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::io;
+use std::io::{self, ErrorKind};
 
 #[doc(hidden)]
 pub trait IsMinusOne {

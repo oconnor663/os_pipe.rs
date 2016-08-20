@@ -8,14 +8,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use prelude::v1::*;
-
-use cmp;
-use io;
+use std::cmp;
+use std::io;
 use libc::{self, c_int};
-use mem;
-use ptr;
-use sys::cvt_r;
+use std::mem;
+use std::ptr;
+use sys::cvt::cvt_r;
 use sys::fd::FileDesc;
 
 /// /////////////////////////////////////////////////////////////////////////////

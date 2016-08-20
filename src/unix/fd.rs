@@ -8,15 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![unstable(reason = "not public", issue = "0", feature = "fd")]
-
-use prelude::v1::*;
-
-use io::{self, Read};
+use std::io::{self, Read};
 use libc::{self, c_int, size_t, c_void};
-use mem;
-use sync::atomic::{AtomicBool, Ordering};
-use sys::cvt;
+use std::mem;
+use std::sync::atomic::{AtomicBool, Ordering};
+use sys::cvt::cvt;
 use sys_common::AsInner;
 use sys_common::io::read_to_end_uninitialized;
 
