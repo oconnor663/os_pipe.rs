@@ -110,7 +110,9 @@ impl FileDesc {
             try!(fd.set_cloexec());
             Ok(fd)
         };
-        static TRY_CLOEXEC: AtomicBool = AtomicBool::new(!cfg!(target_os = "android"));
+        lazy_static! {
+            static ref TRY_CLOEXEC: AtomicBool = AtomicBool::new(!cfg!(target_os = "android"));
+        }
         let fd = self.raw();
         if TRY_CLOEXEC.load(Ordering::Relaxed) {
             match cvt(unsafe { libc::fcntl(fd, F_DUPFD_CLOEXEC, 0) }) {

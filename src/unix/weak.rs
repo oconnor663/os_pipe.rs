@@ -35,8 +35,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 macro_rules! weak {
     (fn $name:ident($($t:ty),*) -> $ret:ty) => (
-        static $name: ::sys::weak::Weak<unsafe extern fn($($t),*) -> $ret> =
-            ::sys::weak::Weak::new(stringify!($name));
+        lazy_static! {
+            static ref $name: ::sys::weak::Weak<unsafe extern fn($($t),*) -> $ret> =
+                ::sys::weak::Weak::new(stringify!($name));
+        }
     )
 }
 
