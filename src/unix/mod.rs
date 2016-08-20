@@ -16,7 +16,13 @@ pub fn stdio_from_file(file: File) -> Stdio {
 }
 
 pub fn pipe() -> io::Result<Pair> {
-    unimplemented!()
+    let (anon_read, anon_write) = try!(pipe::anon_pipe());
+    unsafe {
+        Ok(Pair {
+            read: File::from_raw_fd(anon_read.into_fd().into_raw()),
+            write: File::from_raw_fd(anon_write.into_fd().into_raw()),
+        })
+    }
 }
 
 pub fn dup_stdin() -> io::Result<Stdio> {
