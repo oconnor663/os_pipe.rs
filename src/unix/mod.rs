@@ -1,3 +1,9 @@
+#[macro_use]
+mod weak;
+mod cvt;
+mod fd;
+mod pipe;
+
 use std::fs::File;
 use std::io;
 use std::process::Stdio;
