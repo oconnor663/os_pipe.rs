@@ -18,9 +18,9 @@ use ptr;
 use sys::cvt_r;
 use sys::fd::FileDesc;
 
-////////////////////////////////////////////////////////////////////////////////
-// Anonymous pipes
-////////////////////////////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////////////////////////
+/// Anonymous pipes
+/// /////////////////////////////////////////////////////////////////////////////
 
 pub struct AnonPipe(FileDesc);
 
@@ -36,8 +36,7 @@ pub fn anon_pipe() -> io::Result<(AnonPipe, AnonPipe)> {
         if let Some(pipe) = pipe2.get() {
             match cvt_r(|| unsafe { pipe(fds.as_mut_ptr(), libc::O_CLOEXEC) }) {
                 Ok(_) => {
-                    return Ok((AnonPipe(FileDesc::new(fds[0])),
-                               AnonPipe(FileDesc::new(fds[1]))))
+                    return Ok((AnonPipe(FileDesc::new(fds[0])), AnonPipe(FileDesc::new(fds[1]))))
                 }
                 Err(ref e) if e.raw_os_error() == Some(libc::ENOSYS) => {}
                 Err(e) => return Err(e),
@@ -71,14 +70,15 @@ impl AnonPipe {
         self.0.write(buf)
     }
 
-    pub fn fd(&self) -> &FileDesc { &self.0 }
-    pub fn into_fd(self) -> FileDesc { self.0 }
+    pub fn fd(&self) -> &FileDesc {
+        &self.0
+    }
+    pub fn into_fd(self) -> FileDesc {
+        self.0
+    }
 }
 
-pub fn read2(p1: AnonPipe,
-             v1: &mut Vec<u8>,
-             p2: AnonPipe,
-             v2: &mut Vec<u8>) -> io::Result<()> {
+pub fn read2(p1: AnonPipe, v1: &mut Vec<u8>, p2: AnonPipe, v2: &mut Vec<u8>) -> io::Result<()> {
     // Set both pipes into nonblocking mode as we're gonna be reading from both
     // in the `select` loop below, and we wouldn't want one to block the other!
     let p1 = p1.into_fd();
@@ -90,12 +90,16 @@ pub fn read2(p1: AnonPipe,
     loop {
         // wait for either pipe to become readable using `select`
         cvt_r(|| unsafe {
-            let mut read: libc::fd_set = mem::zeroed();
-            libc::FD_SET(p1.raw(), &mut read);
-            libc::FD_SET(p2.raw(), &mut read);
-            libc::select(max + 1, &mut read, ptr::null_mut(), ptr::null_mut(),
-                         ptr::null_mut())
-        })?;
+                let mut read: libc::fd_set = mem::zeroed();
+                libc::FD_SET(p1.raw(), &mut read);
+                libc::FD_SET(p2.raw(), &mut read);
+                libc::select(max + 1,
+                             &mut read,
+                             ptr::null_mut(),
+                             ptr::null_mut(),
+                             ptr::null_mut())
+            })
+            ?;
 
         // Read as much as we can from each pipe, ignoring EWOULDBLOCK or
         // EAGAIN. If we hit EOF, then this will happen because the underlying

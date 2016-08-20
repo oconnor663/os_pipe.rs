@@ -29,7 +29,9 @@ impl FileDesc {
         FileDesc { fd: fd }
     }
 
-    pub fn raw(&self) -> c_int { self.fd }
+    pub fn raw(&self) -> c_int {
+        self.fd
+    }
 
     /// Extracts the actual filedescriptor without closing it.
     pub fn into_raw(self) -> c_int {
@@ -40,10 +42,11 @@ impl FileDesc {
 
     pub fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
         let ret = cvt(unsafe {
-            libc::read(self.fd,
-                       buf.as_mut_ptr() as *mut c_void,
-                       buf.len() as size_t)
-        })?;
+                libc::read(self.fd,
+                           buf.as_mut_ptr() as *mut c_void,
+                           buf.len() as size_t)
+            })
+            ?;
         Ok(ret as usize)
     }
 
@@ -54,10 +57,9 @@ impl FileDesc {
 
     pub fn write(&self, buf: &[u8]) -> io::Result<usize> {
         let ret = cvt(unsafe {
-            libc::write(self.fd,
-                        buf.as_ptr() as *const c_void,
-                        buf.len() as size_t)
-        })?;
+                libc::write(self.fd, buf.as_ptr() as *const c_void, buf.len() as size_t)
+            })
+            ?;
         Ok(ret as usize)
     }
 
@@ -116,8 +118,7 @@ impl FileDesc {
             fd.set_cloexec()?;
             Ok(fd)
         };
-        static TRY_CLOEXEC: AtomicBool =
-            AtomicBool::new(!cfg!(target_os = "android"));
+        static TRY_CLOEXEC: AtomicBool = AtomicBool::new(!cfg!(target_os = "android"));
         let fd = self.raw();
         if TRY_CLOEXEC.load(Ordering::Relaxed) {
             match cvt(unsafe { libc::fcntl(fd, F_DUPFD_CLOEXEC, 0) }) {
@@ -152,7 +153,9 @@ impl<'a> Read for &'a FileDesc {
 }
 
 impl AsInner<c_int> for FileDesc {
-    fn as_inner(&self) -> &c_int { &self.fd }
+    fn as_inner(&self) -> &c_int {
+        &self.fd
+    }
 }
 
 impl Drop for FileDesc {
