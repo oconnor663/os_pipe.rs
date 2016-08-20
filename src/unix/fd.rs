@@ -13,8 +13,6 @@ use libc::{self, c_int, size_t, c_void};
 use std::mem;
 use std::sync::atomic::{AtomicBool, Ordering};
 use sys::cvt::cvt;
-use sys_common::AsInner;
-use sys_common::io::read_to_end_uninitialized;
 
 pub struct FileDesc {
     fd: c_int,
@@ -133,22 +131,6 @@ impl FileDesc {
             }
         }
         cvt(unsafe { libc::fcntl(fd, libc::F_DUPFD, 0) }).and_then(make_filedesc)
-    }
-}
-
-impl<'a> Read for &'a FileDesc {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        (**self).read(buf)
-    }
-
-    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
-        unsafe { read_to_end_uninitialized(self, buf) }
-    }
-}
-
-impl AsInner<c_int> for FileDesc {
-    fn as_inner(&self) -> &c_int {
-        &self.fd
     }
 }
 
