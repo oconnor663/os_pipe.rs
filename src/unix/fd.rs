@@ -41,12 +41,11 @@ impl FileDesc {
     }
 
     pub fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        let ret = cvt(unsafe {
-                libc::read(self.fd,
-                           buf.as_mut_ptr() as *mut c_void,
-                           buf.len() as size_t)
-            })
-            ?;
+        let ret = try!(cvt(unsafe {
+            libc::read(self.fd,
+                       buf.as_mut_ptr() as *mut c_void,
+                       buf.len() as size_t)
+        }));
         Ok(ret as usize)
     }
 
@@ -56,38 +55,37 @@ impl FileDesc {
     }
 
     pub fn write(&self, buf: &[u8]) -> io::Result<usize> {
-        let ret = cvt(unsafe {
-                libc::write(self.fd, buf.as_ptr() as *const c_void, buf.len() as size_t)
-            })
-            ?;
+        let ret = try!(cvt(unsafe {
+            libc::write(self.fd, buf.as_ptr() as *const c_void, buf.len() as size_t)
+        }));
         Ok(ret as usize)
     }
 
     #[cfg(not(any(target_env = "newlib", target_os = "solaris", target_os = "emscripten")))]
     pub fn set_cloexec(&self) -> io::Result<()> {
         unsafe {
-            cvt(libc::ioctl(self.fd, libc::FIOCLEX))?;
+            try!(cvt(libc::ioctl(self.fd, libc::FIOCLEX)));
             Ok(())
         }
     }
     #[cfg(any(target_env = "newlib", target_os = "solaris", target_os = "emscripten"))]
     pub fn set_cloexec(&self) -> io::Result<()> {
         unsafe {
-            let previous = cvt(libc::fcntl(self.fd, libc::F_GETFD))?;
-            cvt(libc::fcntl(self.fd, libc::F_SETFD, previous | libc::FD_CLOEXEC))?;
+            let previous = try!(cvt(libc::fcntl(self.fd, libc::F_GETFD)));
+            try!(cvt(libc::fcntl(self.fd, libc::F_SETFD, previous | libc::FD_CLOEXEC)));
             Ok(())
         }
     }
 
     pub fn set_nonblocking(&self, nonblocking: bool) -> io::Result<()> {
         unsafe {
-            let previous = cvt(libc::fcntl(self.fd, libc::F_GETFL))?;
+            let previous = try!(cvt(libc::fcntl(self.fd, libc::F_GETFL)));
             let new = if nonblocking {
                 previous | libc::O_NONBLOCK
             } else {
                 previous & !libc::O_NONBLOCK
             };
-            cvt(libc::fcntl(self.fd, libc::F_SETFL, new))?;
+            try!(cvt(libc::fcntl(self.fd, libc::F_SETFL, new)));
             Ok(())
         }
     }
@@ -115,7 +113,7 @@ impl FileDesc {
 
         let make_filedesc = |fd| {
             let fd = FileDesc::new(fd);
-            fd.set_cloexec()?;
+            try!(fd.set_cloexec());
             Ok(fd)
         };
         static TRY_CLOEXEC: AtomicBool = AtomicBool::new(!cfg!(target_os = "android"));
@@ -127,7 +125,7 @@ impl FileDesc {
                 // though it reported doing so on F_DUPFD_CLOEXEC.
                 Ok(fd) => {
                     return Ok(if cfg!(target_os = "linux") {
-                        make_filedesc(fd)?
+                        try!(make_filedesc(fd))
                     } else {
                         FileDesc::new(fd)
                     })
