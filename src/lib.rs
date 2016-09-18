@@ -6,9 +6,9 @@ mod sys;
 mod sys;
 
 use std::fs::File;
+use std::process::Stdio;
 
 pub use sys::pipe;
-pub use sys::stdio_from_file;
 pub use sys::parent_stdin;
 pub use sys::parent_stdout;
 pub use sys::parent_stderr;
@@ -18,6 +18,10 @@ pub struct Pair {
     pub write: File,
 }
 
+pub trait IntoStdio {
+    fn into_stdio(self) -> Stdio;
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::prelude::*;
@@ -25,6 +29,7 @@ mod tests {
     use std::process::Command;
     use std::thread;
     use ::Pair;
+    use ::IntoStdio;
 
     fn path_to_test_binary(name: &str) -> PathBuf {
         let test_project = Path::new(".").join("test").join(name);
@@ -78,8 +83,8 @@ mod tests {
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
         let mut output_pipe = ::pipe().unwrap();
-        let child_stdin = ::stdio_from_file(input_pipe.read);
-        let child_stdout = ::stdio_from_file(output_pipe.write);
+        let child_stdin = input_pipe.read.into_stdio();
+        let child_stdout = output_pipe.write.into_stdio();
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
@@ -113,7 +118,7 @@ mod tests {
 
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
-        let child_stdin = ::stdio_from_file(input_pipe.read);
+        let child_stdin = input_pipe.read.into_stdio();
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.

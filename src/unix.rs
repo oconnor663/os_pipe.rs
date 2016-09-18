@@ -6,9 +6,14 @@ use std::os::unix::prelude::*;
 use std::process::Stdio;
 
 use Pair;
+use IntoStdio;
 
-pub fn stdio_from_file(file: File) -> Stdio {
-    unsafe { Stdio::from_raw_fd(file.into_raw_fd()) }
+impl<T> IntoStdio for T
+    where T: IntoRawFd
+{
+    fn into_stdio(self) -> Stdio {
+        unsafe { Stdio::from_raw_fd(self.into_raw_fd()) }
+    }
 }
 
 pub fn pipe() -> io::Result<Pair> {

@@ -15,10 +15,7 @@ Current API:
   duplicated copies of the stdin/stdout/stderr file handles as
   `std::process::Stdio` objects that can be passed to child processes.
   This is useful for e.g. swapping stdout and stderr.
-- `stdio_from_file()` is a helper function to safely convert a
-  `std::fs::File` to a `std::process::Stdio` object, for passing to
-  child processes. The standard library supports this conversion, but it
-  requires platform-specific traits and takes an `unsafe` call.
-  Currently there's not really such a thing as a "closed file" in Rust,
-  since closing requires dropping, but if Rust ever introduces closed
-  files in the future this function will panic on them.
+- The `IntoStdio` trait makes it easier to build `std::process::Stdio`
+  objects from e.g. `std::fs::File`. The standard library supports this
+  conversion, but it requires platform-specific traits and takes an
+  `unsafe` call.

@@ -9,9 +9,14 @@ use std::mem;
 use std::ptr;
 
 use Pair;
+use IntoStdio;
 
-pub fn stdio_from_file(file: File) -> Stdio {
-    unsafe { Stdio::from_raw_handle(file.into_raw_handle()) }
+impl<T> IntoStdio for T
+    where T: IntoRawHandle
+{
+    fn into_stdio(self) -> Stdio {
+        unsafe { Stdio::from_raw_handle(self.into_raw_handle()) }
+    }
 }
 
 pub fn pipe() -> io::Result<Pair> {
@@ -67,5 +72,5 @@ fn dup_std_handle(which: winapi::DWORD) -> io::Result<Stdio> {
     let temp_file = unsafe { File::from_raw_handle(handle) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
     mem::forget(temp_file);  // Avoid closing the global handle.
-    dup_result.map(stdio_from_file)
+    dup_result.map(IntoStdio::into_stdio)
 }
