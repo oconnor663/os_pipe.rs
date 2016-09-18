@@ -1,12 +1,3 @@
-// TODO: Figure out why including lazy_static breaks the Windows build.
-#[cfg(not(windows))]
-#[macro_use]
-extern crate lazy_static;
-
-// TODO: Figure out why Windows things we're depending on the unstable libc.
-#[cfg(not(windows))]
-extern crate libc;
-
 #[cfg(not(windows))]
 #[path = "unix.rs"]
 mod sys;
@@ -18,9 +9,9 @@ use std::fs::File;
 
 pub use sys::pipe;
 pub use sys::stdio_from_file;
-pub use sys::dup_stdin;
-pub use sys::dup_stdout;
-pub use sys::dup_stderr;
+pub use sys::parent_stdin;
+pub use sys::parent_stdout;
+pub use sys::parent_stderr;
 
 pub struct Pair {
     pub read: File,
@@ -118,7 +109,7 @@ mod tests {
         drop(input_pipe.write);
 
         // Spawn the child and read its output. This is a tee program that copies its input to both
-        // stdout and stderr. It depends on os_pipe itself, and uses the dup_* handles for all of
+        // stdout and stderr. It depends on os_pipe itself, and uses the parent_* handles for all of
         // its IO.
         let tee_dir = Path::new(".").join("test").join("tee");
         let output = process::Command::new("cargo")
