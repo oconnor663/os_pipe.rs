@@ -1,25 +1,24 @@
 # os_pipe.rs [![Build Status](https://travis-ci.org/oconnor663/os_pipe.rs.svg?branch=master)](https://travis-ci.org/oconnor663/os_pipe.rs) [![Build status](https://ci.appveyor.com/api/projects/status/89o6o64nxfl80s78/branch/master?svg=true)](https://ci.appveyor.com/project/oconnor663/os-pipe-rs/branch/master)
 
-A cross-platform Rust library for opening pipes, backed by libc's
-`pipe()` on Unix and `CreatePipe` on Windows. Most of the code is
-adapted from unexposed parts of the Rust standard library.
-
-This library was created mainly for
-[duct.rs](https://github.com/oconnor663/duct.rs), but I'm happy to get
-feature requests. I'd especially appreciate corrections from people more
-familiar with these OS-specific functions.
+A cross-platform Rust library for opening anonymous pipes, backed by
+[`nix`](https://github.com/nix-rust/nix) on Unix and
+[`winapi`](https://github.com/retep998/winapi-rs) on Windows. If anyone
+needs it, we could also add support for named pipes and IOCP (using
+random names) on Windows, or creating filesystem FIFO's on Unix.
 
 Current API:
 
-- `pipe()` returns two `File` objects, the reading and writing ends of
-  the new pipe, as the `read` and `write` members of a `Pair` struct.
-- `dup_stdin()`, `dup_stdout()`, and `dup_stderr()` return duplicated
-  copies of the stdin/stdout/stderr file handles. These aren't
-  synchronized with the handles in `std::io`, so you shouldn't do actual
-  IO with them. Their purpose is to let you do interesting things to a
-  child process's pipes with `std::process::Command`. (TODO: Make these
-  just std::process::Stdio objects, do discourage IO?)
-- `stdio_from_file()` is a helper function to safely convert a `File` to
-  a `std::process::Stdio` object, for passing to child processes. The
-  standard library does provide this conversion, but it uses
-  platform-specific traits and takes an `unsafe` call.
+- `pipe()` returns two `std::fs::File` objects, the reading and writing
+  ends of the new pipe, as the `read` and `write` members of a `Pair`
+  struct.
+- `parent_stdin()`, `parent_stdout()`, and `parent_stderr()` return
+  duplicated copies of the stdin/stdout/stderr file handles as
+  `std::process::Stdio` objects that can be passed to child processes.
+  This is useful for e.g. swapping stdout and stderr.
+- `stdio_from_file()` is a helper function to safely convert a
+  `std::fs::File` to a `std::process::Stdio` object, for passing to
+  child processes. The standard library supports this conversion, but it
+  requires platform-specific traits and takes an `unsafe` call.
+  Currently there's not really such a thing as a "closed file" in Rust,
+  since closing requires dropping, but if Rust ever introduces closed
+  files in the future this function will panic on them.
