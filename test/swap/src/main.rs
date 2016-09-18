@@ -6,10 +6,12 @@ use std::env::args_os;
 use std::ffi::OsString;
 use std::process::Command;
 
+use os_pipe::ParentHandle;
+
 fn main() {
-    let stdin = os_pipe::parent_stdin().unwrap();
-    let stdout = os_pipe::parent_stdout().unwrap();
-    let stderr = os_pipe::parent_stderr().unwrap();
+    let stdin = ParentHandle::Stdin.to_stdio().unwrap();
+    let stdout = ParentHandle::Stdout.to_stdio().unwrap();
+    let stderr = ParentHandle::Stderr.to_stdio().unwrap();
 
     let args: Vec<OsString> = args_os().collect();
     let mut child = Command::new(&args[1]);

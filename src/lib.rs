@@ -6,16 +6,28 @@ mod sys;
 mod sys;
 
 use std::fs::File;
+use std::io;
+use std::process::Stdio;
 
 pub use sys::pipe;
 pub use sys::stdio_from_file;
-pub use sys::parent_stdin;
-pub use sys::parent_stdout;
-pub use sys::parent_stderr;
 
 pub struct Pair {
     pub read: File,
     pub write: File,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ParentHandle {
+    Stdin,
+    Stdout,
+    Stderr,
+}
+
+impl ParentHandle {
+    pub fn to_stdio(self) -> io::Result<Stdio> {
+        sys::parent_handle_to_stdio(self)
+    }
 }
 
 #[cfg(test)]

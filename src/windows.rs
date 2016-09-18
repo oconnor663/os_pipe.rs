@@ -9,6 +9,7 @@ use std::mem;
 use std::ptr;
 
 use Pair;
+use ParentHandle;
 
 pub fn stdio_from_file(file: File) -> Stdio {
     unsafe { Stdio::from_raw_handle(file.into_raw_handle()) }
@@ -39,16 +40,13 @@ pub fn pipe() -> io::Result<Pair> {
     }
 }
 
-pub fn parent_stdin() -> io::Result<Stdio> {
-    dup_std_handle(winapi::STD_INPUT_HANDLE)
-}
-
-pub fn parent_stdout() -> io::Result<Stdio> {
-    dup_std_handle(winapi::STD_OUTPUT_HANDLE)
-}
-
-pub fn parent_stderr() -> io::Result<Stdio> {
-    dup_std_handle(winapi::STD_ERROR_HANDLE)
+pub fn parent_handle_to_stdio(parent_handle: ParentHandle) -> io::Result<Stdio> {
+    let windows_handle = match parent_handle {
+        ParentHandle::Stdin => winapi::STD_INPUT_HANDLE,
+        ParentHandle::Stdout => winapi::STD_OUTPUT_HANDLE,
+        ParentHandle::Stderr => winapi::STD_ERROR_HANDLE,
+    };
+    dup_std_handle(windows_handle)
 }
 
 // adapted from src/libstd/sys/windows/stdio.rs

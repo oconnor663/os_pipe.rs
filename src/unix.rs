@@ -6,6 +6,7 @@ use std::os::unix::prelude::*;
 use std::process::Stdio;
 
 use Pair;
+use ParentHandle;
 
 pub fn stdio_from_file(file: File) -> Stdio {
     unsafe { Stdio::from_raw_fd(file.into_raw_fd()) }
@@ -25,16 +26,13 @@ pub fn pipe() -> io::Result<Pair> {
     }
 }
 
-pub fn parent_stdin() -> io::Result<Stdio> {
-    dup_fd_cloexec(nix::libc::STDIN_FILENO)
-}
-
-pub fn parent_stdout() -> io::Result<Stdio> {
-    dup_fd_cloexec(nix::libc::STDOUT_FILENO)
-}
-
-pub fn parent_stderr() -> io::Result<Stdio> {
-    dup_fd_cloexec(nix::libc::STDERR_FILENO)
+pub fn parent_handle_to_stdio(handle: ParentHandle) -> io::Result<Stdio> {
+    let fileno = match handle {
+        ParentHandle::Stdin => nix::libc::STDIN_FILENO,
+        ParentHandle::Stdout => nix::libc::STDOUT_FILENO,
+        ParentHandle::Stderr => nix::libc::STDERR_FILENO,
+    };
+    dup_fd_cloexec(fileno)
 }
 
 fn dup_fd_cloexec(fd: RawFd) -> io::Result<Stdio> {
