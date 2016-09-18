@@ -1,58 +1,30 @@
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
+extern crate winapi;
+extern crate kernel32;
+
 use std::fs::File;
 use std::io;
-use std::os::raw::{c_int, c_void, c_ulong};
-use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+use std::os::windows::prelude::*;
 use std::process::Stdio;
+use std::mem;
 use std::ptr;
 
-use ::Pair;
+use Pair;
 
 pub fn stdio_from_file(file: File) -> Stdio {
     unsafe { Stdio::from_raw_handle(file.into_raw_handle()) }
 }
 
-type DWORD = c_ulong;
-type HANDLE = LPVOID;
-type PHANDLE = *mut HANDLE;
-type BOOL = c_int;
-type WCHAR = u16;
-type LPCWSTR = *const WCHAR;
-type LPVOID = *mut c_void;
-type LPSECURITY_ATTRIBUTES = *mut SECURITY_ATTRIBUTES;
-
-// Note that these are not actually HANDLEs, just values to pass to GetStdHandle
-const STD_INPUT_HANDLE: DWORD = -10i32 as DWORD;
-const STD_OUTPUT_HANDLE: DWORD = -11i32 as DWORD;
-const STD_ERROR_HANDLE: DWORD = -12i32 as DWORD;
-const INVALID_HANDLE_VALUE: HANDLE = !0 as HANDLE;
-
-#[repr(C)]
-struct SECURITY_ATTRIBUTES {
-    nLength: DWORD,
-    lpSecurityDescriptor: LPVOID,
-    bInheritHandle: BOOL,
-}
-
-extern "system" {
-    fn CreatePipe(hReadPipe: PHANDLE,
-                  hWritePipe: PHANDLE,
-                  nSize: DWORD,
-                  lpPipeAttributes: LPSECURITY_ATTRIBUTES)
-                  -> BOOL;
-    fn GetStdHandle(which: DWORD) -> HANDLE;
-}
-
 pub fn pipe() -> io::Result<Pair> {
-    let mut readPipe: HANDLE = ptr::null_mut();
-    let mut writePipe: HANDLE = ptr::null_mut();
+    let mut read_pipe: winapi::HANDLE = ptr::null_mut();
+    let mut write_pipe: winapi::HANDLE = ptr::null_mut();
 
     let ret = unsafe {
-        CreatePipe(&mut readPipe as PHANDLE,
-                   &mut writePipe as PHANDLE,
-                   0,
-                   ptr::null_mut())
+        // TODO: These pipes do not support IOCP. We might want to emulate anonymous pipes with
+        // CreateNamedPipe, as Rust's stdlib does.
+        kernel32::CreatePipe(&mut read_pipe as winapi::PHANDLE,
+                             &mut write_pipe as winapi::PHANDLE,
+                             ptr::null_mut(),
+                             0)
     };
 
     if ret == 0 {
@@ -60,34 +32,40 @@ pub fn pipe() -> io::Result<Pair> {
     } else {
         unsafe {
             Ok(Pair {
-                read: File::from_raw_handle(readPipe),
-                write: File::from_raw_handle(writePipe),
+                read: File::from_raw_handle(read_pipe),
+                write: File::from_raw_handle(write_pipe),
             })
         }
     }
 }
 
-pub fn dup_stdin() -> io::Result<File> {
-    get_std_handle(STD_INPUT_HANDLE)
+pub fn parent_stdin() -> io::Result<Stdio> {
+    dup_std_handle(winapi::STD_INPUT_HANDLE)
 }
 
-pub fn dup_stdout() -> io::Result<File> {
-    get_std_handle(STD_OUTPUT_HANDLE)
+pub fn parent_stdout() -> io::Result<Stdio> {
+    dup_std_handle(winapi::STD_OUTPUT_HANDLE)
 }
 
-pub fn dup_stderr() -> io::Result<File> {
-    get_std_handle(STD_ERROR_HANDLE)
+pub fn parent_stderr() -> io::Result<Stdio> {
+    dup_std_handle(winapi::STD_ERROR_HANDLE)
 }
 
 // adapted from src/libstd/sys/windows/stdio.rs
-fn get_std_handle(which: DWORD) -> io::Result<File> {
-    let handle = unsafe { GetStdHandle(which) };
-    if handle == INVALID_HANDLE_VALUE {
-        Err(io::Error::last_os_error())
-    } else if handle.is_null() {
-        Err(io::Error::new(io::ErrorKind::Other,
-                           "no stdio handle available for this process"))
-    } else {
-        unsafe { Ok(File::from_raw_handle(handle)) }
+fn dup_std_handle(which: winapi::DWORD) -> io::Result<Stdio> {
+    let handle = unsafe { kernel32::GetStdHandle(which) };
+    if handle == winapi::INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
     }
+    if handle.is_null() {
+        return Err(io::Error::new(io::ErrorKind::Other,
+                                  "no stdio handle available for this process"));
+    }
+    // This handle is *not* a dup. It's just a copy of the global stdin/stdout/stderr handle, and
+    // we need to dup it ourselves. The simplest way to do that is File::try_clone(), but we need
+    // to make sure that the file is never dropped.
+    let temp_file = unsafe { File::from_raw_handle(handle) };
+    let dup_result = temp_file.try_clone();  // No short-circuit here!
+    mem::forget(temp_file);  // Avoid closing the global handle.
+    dup_result.map(stdio_from_file)
 }
