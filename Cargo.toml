@@ -2,7 +2,7 @@
 name = "os_pipe"
 version = "0.2.0"
 authors = ["Jack O'Connor"]
-description = "an adaptation of the OS pipe code from stdlib as a standalone library"
+description = "a cross-platform library for creating pipes"
 repository = "https://github.com/oconnor663/os_pipe.rs"
 license = "MIT"
 
