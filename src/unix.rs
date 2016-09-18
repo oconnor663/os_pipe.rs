@@ -2,6 +2,7 @@ extern crate nix;
 
 use std::fs::File;
 use std::io;
+use std::mem;
 use std::os::unix::prelude::*;
 use std::process::Stdio;
 
@@ -26,19 +27,20 @@ pub fn pipe() -> io::Result<Pair> {
 }
 
 pub fn parent_stdin() -> io::Result<Stdio> {
-    dup_fd_cloexec(nix::libc::STDIN_FILENO)
+    dup_fd(nix::libc::STDIN_FILENO)
 }
 
 pub fn parent_stdout() -> io::Result<Stdio> {
-    dup_fd_cloexec(nix::libc::STDOUT_FILENO)
+    dup_fd(nix::libc::STDOUT_FILENO)
 }
 
 pub fn parent_stderr() -> io::Result<Stdio> {
-    dup_fd_cloexec(nix::libc::STDERR_FILENO)
+    dup_fd(nix::libc::STDERR_FILENO)
 }
 
-fn dup_fd_cloexec(fd: RawFd) -> io::Result<Stdio> {
-    // Atomically set O_CLOEXEC on the new fd.
-    let new_fd = try!(nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_DUPFD_CLOEXEC(0)));
-    unsafe { Ok(Stdio::from_raw_fd(new_fd)) }
+fn dup_fd(fd: RawFd) -> io::Result<Stdio> {
+    let temp_file = unsafe { File::from_raw_fd(fd) };
+    let dup_result = temp_file.try_clone();  // No short-circuit here!
+    mem::forget(temp_file);  // Prevent drop() to avoid closing fd.
+    dup_result.map(stdio_from_file)
 }
