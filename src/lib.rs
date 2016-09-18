@@ -1,22 +1,38 @@
+use std::fs::File;
+use std::io;
+use std::process::Stdio;
+
+pub struct Pair {
+    pub read: File,
+    pub write: File,
+}
+
+pub fn pipe() -> io::Result<Pair> {
+    sys::pipe()
+}
+
+pub fn parent_stdin() -> io::Result<Stdio> {
+    sys::parent_stdin()
+}
+
+pub fn parent_stdout() -> io::Result<Stdio> {
+    sys::parent_stdout()
+}
+
+pub fn parent_stderr() -> io::Result<Stdio> {
+    sys::parent_stderr()
+}
+
+pub fn stdio_from_file(file: File) -> Stdio {
+    sys::stdio_from_file(file)
+}
+
 #[cfg(not(windows))]
 #[path = "unix.rs"]
 mod sys;
 #[cfg(windows)]
 #[path = "windows.rs"]
 mod sys;
-
-use std::fs::File;
-
-pub use sys::pipe;
-pub use sys::stdio_from_file;
-pub use sys::parent_stdin;
-pub use sys::parent_stdout;
-pub use sys::parent_stderr;
-
-pub struct Pair {
-    pub read: File,
-    pub write: File,
-}
 
 #[cfg(test)]
 mod tests {
