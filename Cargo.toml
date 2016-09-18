@@ -1,6 +1,6 @@
 [package]
 name = "os_pipe"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Jack O'Connor"]
 description = "an adaptation of the OS pipe code from stdlib as a standalone library"
 repository = "https://github.com/oconnor663/os_pipe.rs"
