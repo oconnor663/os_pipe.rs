@@ -21,10 +21,23 @@ pub struct Pair {
 #[cfg(test)]
 mod tests {
     use std::io::prelude::*;
-    use std::path::Path;
-    use std::process;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
     use std::thread;
     use ::Pair;
+
+    fn path_to_test_binary(name: &str) -> PathBuf {
+        let test_project = Path::new(".").join("test").join(name);
+        // Build the test command.
+        Command::new("cargo")
+            .arg("build")
+            .arg("--quiet")
+            .current_dir(&test_project)
+            .status()
+            .expect(&format!("Building test command '{}' returned an error.", name));
+        // Return the path to the built binary.
+        test_project.join("target").join("debug").join(name)
+    }
 
     #[test]
     fn test_pipe_some_data() {
@@ -72,11 +85,7 @@ mod tests {
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
         // stops us from blocking our own read below. We use our own simple implementation of cat
         // for compatibility with Windows.
-        let cat_dir = Path::new(".").join("test").join("cat");
-        let mut child = process::Command::new("cargo")
-            .arg("run")
-            .arg("-q")
-            .current_dir(&cat_dir)
+        let mut child = Command::new(path_to_test_binary("cat"))
             .stdin(child_stdin)
             .stdout(child_stdout)
             .spawn()
@@ -98,7 +107,10 @@ mod tests {
     }
 
     #[test]
-    fn test_duped_handles() {
+    fn test_parent_handles() {
+        // This test invokes the `swap` test program, which uses parent_stdout() and
+        // parent_stderr() to swap the outputs for another child that it spawns.
+
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
         let child_stdin = ::stdio_from_file(input_pipe.read);
@@ -108,14 +120,10 @@ mod tests {
         input_pipe.write.write_all(b"quack").unwrap();
         drop(input_pipe.write);
 
-        // Spawn the child and read its output. This is a tee program that copies its input to both
-        // stdout and stderr. It depends on os_pipe itself, and uses the parent_* handles for all of
-        // its IO.
-        let tee_dir = Path::new(".").join("test").join("tee");
-        let output = process::Command::new("cargo")
-            .arg("run")
-            .arg("-q")
-            .current_dir(&tee_dir)
+        // Use `swap` to run `cat`. `cat will read "quack" from stdin and write it to stdout. But
+        // because we run it inside `swap`, that write should end up on stderr.
+        let output = Command::new(path_to_test_binary("swap"))
+            .arg(path_to_test_binary("cat"))
             .stdin(child_stdin)
             .output()
             .unwrap();
@@ -126,7 +134,7 @@ mod tests {
                 output);
 
         // Confirm that we got the right bytes.
-        assert_eq!(b"quack", &*output.stdout);
+        assert_eq!(b"", &*output.stdout);
         assert_eq!(b"quack", &*output.stderr);
     }
 }

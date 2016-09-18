@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use std::io::{stdin, stdout, copy};
 
 fn main() {
