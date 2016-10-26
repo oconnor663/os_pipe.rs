@@ -1,5 +1,8 @@
 #![deny(warnings)]
 
+/// Windows doesn't have a native equivalent for cat, so we use this little
+/// Rust implementation instead.
+
 use std::io::{stdin, stdout, copy};
 
 fn main() {

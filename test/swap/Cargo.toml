@@ -1,9 +1,0 @@
-[package]
-name = "swap"
-version = "0.1.0"
-authors = ["Jack O'Connor"]
-description = "runs a child command and swaps stdout and stderr"
-license = "MIT"
-
-[dependencies]
-os_pipe = { path = "../../" }

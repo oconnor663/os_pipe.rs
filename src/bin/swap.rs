@@ -1,5 +1,9 @@
 #![deny(warnings)]
 
+/// This little test binary reads stdin and write what it reads to both
+/// stdout and stderr. It depends on os_pipe's parent_* functions, and
+/// we use it to test them.
+
 extern crate os_pipe;
 
 use std::env::args_os;

@@ -1,3 +1,0 @@
-This little test binary reads stdin and write what it reads to both
-stdout and stderr. It depends on the os_pipe library above, and we use
-it to test the parent_* functions.

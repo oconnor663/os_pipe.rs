@@ -37,22 +37,29 @@ mod sys;
 #[cfg(test)]
 mod tests {
     use std::io::prelude::*;
+    use std::env::consts::EXE_EXTENSION;
     use std::path::{Path, PathBuf};
     use std::process::Command;
+    use std::sync::{Once, ONCE_INIT};
     use std::thread;
     use ::Pair;
 
-    fn path_to_test_binary(name: &str) -> PathBuf {
-        let test_project = Path::new(".").join("test").join(name);
-        // Build the test command.
-        Command::new("cargo")
-            .arg("build")
-            .arg("--quiet")
-            .current_dir(&test_project)
-            .status()
-            .expect(&format!("Building test command '{}' returned an error.", name));
-        // Return the path to the built binary.
-        test_project.join("target").join("debug").join(name)
+    fn path_to_exe(name: &str) -> PathBuf {
+        // This project defines some associated binaries for testing, and we shell out to them in
+        // these tests. `cargo test` doesn't automatically build associated binaries, so this
+        // function takes care of building them explicitly.
+        static CARGO_BUILD_ONCE: Once = ONCE_INIT;
+        CARGO_BUILD_ONCE.call_once(|| {
+            let build_status = Command::new("cargo")
+                .arg("build")
+                .arg("--quiet")
+                .status()
+                .unwrap();
+            assert!(build_status.success(),
+                    "Cargo failed to build associated binaries.");
+        });
+
+        Path::new("target").join("debug").join(name).with_extension(EXE_EXTENSION)
     }
 
     #[test]
@@ -101,7 +108,7 @@ mod tests {
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
         // stops us from blocking our own read below. We use our own simple implementation of cat
         // for compatibility with Windows.
-        let mut child = Command::new(path_to_test_binary("cat"))
+        let mut child = Command::new(path_to_exe("cat"))
             .stdin(child_stdin)
             .stdout(child_stdout)
             .spawn()
@@ -138,8 +145,8 @@ mod tests {
 
         // Use `swap` to run `cat`. `cat will read "quack" from stdin and write it to stdout. But
         // because we run it inside `swap`, that write should end up on stderr.
-        let output = Command::new(path_to_test_binary("swap"))
-            .arg(path_to_test_binary("cat"))
+        let output = Command::new(path_to_exe("swap"))
+            .arg(path_to_exe("cat"))
             .stdin(child_stdin)
             .output()
             .unwrap();
