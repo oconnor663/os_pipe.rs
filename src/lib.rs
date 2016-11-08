@@ -47,19 +47,24 @@ mod tests {
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
         // these tests. `cargo test` doesn't automatically build associated binaries, so this
-        // function takes care of building them explicitly.
+        // function takes care of building them explicitly, with the right debug/release flavor.
         static CARGO_BUILD_ONCE: Once = ONCE_INIT;
         CARGO_BUILD_ONCE.call_once(|| {
-            let build_status = Command::new("cargo")
-                .arg("build")
-                .arg("--quiet")
-                .status()
-                .unwrap();
+            let mut build_command = Command::new("cargo");
+            build_command.args(&["build", "--quiet"]);
+            if !cfg!(debug_assertions) {
+                build_command.arg("--release");
+            }
+            let build_status = build_command.status().unwrap();
             assert!(build_status.success(),
                     "Cargo failed to build associated binaries.");
         });
-
-        Path::new("target").join("debug").join(name).with_extension(EXE_EXTENSION)
+        let flavor = if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        };
+        Path::new("target").join(flavor).join(name).with_extension(EXE_EXTENSION)
     }
 
     #[test]
