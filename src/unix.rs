@@ -16,7 +16,7 @@ pub fn pipe() -> io::Result<Pair> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
     // effort to make that atomic on platforms that support it, to avoid the case where another
     // thread forks right after the pipes are created but before O_CLOEXEC is set.
-    let (read_fd, write_fd) = try!(nix::unistd::pipe2(nix::fcntl::O_CLOEXEC));
+    let (read_fd, write_fd) = nix::unistd::pipe2(nix::fcntl::O_CLOEXEC)?;
 
     unsafe {
         Ok(Pair {
