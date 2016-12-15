@@ -1,28 +1,62 @@
+//! A library for opening OS pipes, on both Windows and Posix. The
+//! standard library uses pipes to read output from child processes, but
+//! it doesn't expose a way to create them directly. This crate fills
+//! that gap with the `pipe` function. It also includes some utilities
+//! for passing pipes to `std::process::Command` API.
+
 use std::fs::File;
 use std::io;
 use std::process::Stdio;
 
+/// The read and write ends of the pipe created by `pipe`.
 pub struct Pair {
     pub read: File,
     pub write: File,
 }
 
+/// Open a new pipe.
+///
+/// This corresponds to the `pipe2` library call on Posix and the
+/// `CreatePipe` library call on Windows (though these implementation
+/// details might change). Pipes are non-inheritable, so new child
+/// processes won't receive a copy of them unless they're explicitly
+/// used for stdin/stdout/stderr.
 pub fn pipe() -> io::Result<Pair> {
     sys::pipe()
 }
 
+/// Get a duplicated copy of the current process's standard input pipe.
+///
+/// This isn't intended for doing IO, rather it's in a form that can be
+/// passed directly to the `std::process::Command` API.
 pub fn parent_stdin() -> io::Result<Stdio> {
     sys::parent_stdin()
 }
 
+/// Get a duplicated copy of the current process's standard output pipe.
+///
+/// This isn't intended for doing IO, rather it's in a form that can be
+/// passed directly to the `std::process::Command` API.
 pub fn parent_stdout() -> io::Result<Stdio> {
     sys::parent_stdout()
 }
 
+/// Get a duplicated copy of the current process's standard error pipe.
+///
+/// This isn't intended for doing IO, rather it's in a form that can be
+/// passed directly to the `std::process::Command` API.
 pub fn parent_stderr() -> io::Result<Stdio> {
     sys::parent_stderr()
 }
 
+/// Safely convert a `std::fs::File` to a `std::process::Stdio`.
+///
+/// The standard library supports this conversion, but it requires
+/// platform-specific traits and takes an `unsafe` call. This is a safe
+/// wrapper for convenience. Currently there's not really such a thing
+/// as a "closed file" in Rust, since closing requires dropping, but if
+/// Rust ever introduces closed files in the future this function will
+/// panic on them.
 pub fn stdio_from_file(file: File) -> Stdio {
     sys::stdio_from_file(file)
 }
