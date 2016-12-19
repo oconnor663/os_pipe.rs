@@ -1,8 +1,42 @@
-//! A library for opening OS pipes, on both Windows and Posix. The
-//! standard library uses pipes to read output from child processes, but
-//! it doesn't expose a way to create them directly. This crate fills
-//! that gap with the `pipe` function. It also includes some utilities
-//! for passing pipes to `std::process::Command` API.
+//! A cross-platform library for opening OS pipes.
+//!
+//! The standard library uses pipes to read output from child processes,
+//! but it doesn't expose a way to create them directly. This crate
+//! fills that gap with the `pipe` function. It also includes some
+//! utilities for passing pipes to `std::process::Command` API.
+//!
+//! The main motivation for this crate is to provide pipes for the
+//! higher level [`duct`](https://crates.io/crates/duct) crate. If your
+//! main use case for pipes is to talk to child processes, `duct` can
+//! handle all of the details for you.
+//!
+//! # Example
+//!
+//! ```
+//! // Join the stdout and stderr of a child process into a single
+//! // stream, and read it. We do this by opening a pipe, duping its
+//! // write end, using passing those write ends as the stdout and
+//! // stderr of the child. We then read from the read end of the pipe,
+//! // though we have to be careful to close the write ends by dropping
+//! // the Command object that's holding them, or else `read_to_end`
+//! // will block forever.
+//!
+//! use os_pipe::{pipe, Pair, stdio_from_file};
+//! use std::io::prelude::*;
+//! use std::process::Command;
+//!
+//! let Pair{mut read, write} = pipe().unwrap();
+//! let write_copy = write.try_clone().unwrap();
+//! let mut child = Command::new("echo");
+//! child.arg("foo");
+//! child.stdout(stdio_from_file(write));
+//! child.stderr(stdio_from_file(write_copy));
+//! let mut handle = child.spawn().unwrap();
+//! drop(child);
+//! let mut stdout_and_stderr = Vec::new();
+//! read.read_to_end(&mut stdout_and_stderr).unwrap();
+//! handle.wait().unwrap();
+//! ```
 
 use std::fs::File;
 use std::io;
@@ -20,7 +54,7 @@ pub struct Pair {
 /// `CreatePipe` library call on Windows (though these implementation
 /// details might change). Pipes are non-inheritable, so new child
 /// processes won't receive a copy of them unless they're explicitly
-/// used for stdin/stdout/stderr.
+/// passed as stdin/stdout/stderr.
 pub fn pipe() -> io::Result<Pair> {
     sys::pipe()
 }
