@@ -162,6 +162,12 @@ mod tests {
         let Pair { mut read, mut write } = ::pipe().unwrap();
         let joiner = thread::spawn(move || {
             write.write_all(&data_copy).unwrap();
+            // This drop happens automatically, so writing it out here is mostly
+            // just for clarity. For what it's worth, it also guards against
+            // accidentally forgetting to drop if we switch to scoped threads or
+            // something like that and change this to a non-moving closure. The
+            // explicit drop forces `write` to move.
+            drop(write);
         });
         let mut out = Vec::new();
         read.read_to_end(&mut out).unwrap();
