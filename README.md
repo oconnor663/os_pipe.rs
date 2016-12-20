@@ -14,7 +14,7 @@ handle all of the details for you.
 
 # Example
 
-```
+```rust
 // Join the stdout and stderr of a child process into a single
 // stream, and read it. We do this by opening a pipe, duping its
 // write end, using passing those write ends as the stdout and
