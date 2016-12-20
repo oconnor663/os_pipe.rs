@@ -2,8 +2,9 @@
 name = "os_pipe"
 version = "0.2.1"
 authors = ["Jack O'Connor"]
-description = "a cross-platform library for creating pipes"
+description = "a cross-platform library for opening OS pipes"
 repository = "https://github.com/oconnor663/os_pipe.rs"
+documentation = "https://docs.rs/os_pipe/0.2.0/os_pipe"
 license = "MIT"
 
 [target.'cfg(not(windows))'.dependencies]
