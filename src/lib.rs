@@ -3,39 +3,60 @@
 //! The standard library uses pipes to read output from child processes,
 //! but it doesn't expose a way to create them directly. This crate
 //! fills that gap with the `pipe` function. It also includes some
-//! utilities for passing pipes to `std::process::Command` API.
+//! helpers for passing pipes to the `std::process::Command` API.
 //!
-//! The main motivation for this crate is to provide pipes for the
-//! higher level [`duct`](https://crates.io/crates/duct) crate. If your
-//! main use case for pipes is to talk to child processes, `duct` can
-//! handle all of the details for you.
+//! `os_pipe` was originally built to support the higher-level
+//! [`duct`](https://crates.io/crates/duct) library. If you need to do
+//! fancy things with child processes, take a look at `duct` first. It
+//! can run the following example in a single line.
 //!
 //! # Example
 //!
-//! ```
-//! // Join the stdout and stderr of a child process into a single
-//! // stream, and read it. We do this by opening a pipe, duping its
-//! // write end, using passing those write ends as the stdout and
-//! // stderr of the child. We then read from the read end of the pipe,
-//! // though we have to be careful to close the write ends by dropping
-//! // the Command object that's holding them, or else `read_to_end`
-//! // will block forever.
+//! Join the stdout and stderr of a child process into a single stream,
+//! and read it. To do that we open a pipe, duplicate its write end, and
+//! pass those writers as the child's stdout and stderr. Then we can
+//! read combined output from the read end of the pipe. We have to be
+//! careful to close the write ends first though, or reading will block
+//! waiting for EOF.
 //!
+//! ```rust
 //! use os_pipe::{pipe, Pair, stdio_from_file};
 //! use std::io::prelude::*;
 //! use std::process::Command;
 //!
+//! // This command prints "foo" to stdout and "bar" to stderr. It
+//! // works on both Unix and Windows, though there are whitespace
+//! // differences that we'll account for at the bottom.
+//! let shell_command = "echo foo && echo bar >&2";
+//!
+//! // Ritual magic to run shell commands on different platforms.
+//! let (shell, flag) = if cfg!(windows) { ("cmd.exe", "/C") } else { ("sh", "-c") };
+//!
+//! let mut child = Command::new(shell);
+//! child.arg(flag);
+//! child.arg(shell_command);
+//!
+//! // Here's the interesting part. Open a pipe, copy its write end, and
+//! // give both copies to the child.
 //! let Pair{mut read, write} = pipe().unwrap();
 //! let write_copy = write.try_clone().unwrap();
-//! let mut child = Command::new("echo");
-//! child.arg("foo");
 //! child.stdout(stdio_from_file(write));
 //! child.stderr(stdio_from_file(write_copy));
+//!
+//! // Now start the child running.
 //! let mut handle = child.spawn().unwrap();
+//!
+//! // Very important when using pipes: This parent process is still
+//! // holding its copies of the write ends, and we have to close them
+//! // before we read, otherwise the read end will never report EOF. The
+//! // Command object owns the writers now, and dropping it closes them.
 //! drop(child);
-//! let mut stdout_and_stderr = Vec::new();
-//! read.read_to_end(&mut stdout_and_stderr).unwrap();
+//!
+//! // Finally we can read all the output and clean up the child.
+//! let mut output = String::new();
+//! read.read_to_string(&mut output).unwrap();
 //! handle.wait().unwrap();
+//! assert!(output.split_whitespace().eq(vec!["foo", "bar"]));
 //! ```
 
 use std::fs::File;
