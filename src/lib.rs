@@ -63,7 +63,7 @@ use std::fs::File;
 use std::io;
 use std::process::Stdio;
 
-/// The read and write ends of a pipe created by `pipe`.
+/// The read and write ends of a pipe created by [`pipe`](fn.pipe.html).
 pub struct Pipe {
     pub reader: File,
     pub writer: File,
