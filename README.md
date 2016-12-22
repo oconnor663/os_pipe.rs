@@ -7,10 +7,15 @@ but it doesn't expose a way to create them directly. This crate
 fills that gap with the `pipe` function. It also includes some
 helpers for passing pipes to the `std::process::Command` API.
 
-`os_pipe` was originally built to support the higher-level
-[`duct`](https://crates.io/crates/duct) library. If you need to do
-fancy things with child processes, take a look at `duct` first. It
-can run the following example in a single line.
+- [Docs](https://docs.rs/os_pipe)
+- [Crate](https://crates.io/crates/os_pipe)
+- [Repo](https://github.com/oconnor663/os_pipe.rs)
+
+Usage note: The main purpose of `os_pipe` is to support the
+higher-level [`duct`](https://github.com/oconnor663/duct.rs)
+library, which handles most of the same use cases with much less
+code and no risk of deadlocks. `duct` can run the entire example
+below in one line of code.
 
 # Example
 
