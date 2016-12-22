@@ -22,7 +22,7 @@ careful to close the write ends first though, or reading will block
 waiting for EOF.
 
 ```rust
-use os_pipe::{pipe, Pair, stdio_from_file};
+use os_pipe::{pipe, Pipe, stdio_from_file};
 use std::io::prelude::*;
 use std::process::Command;
 
@@ -40,7 +40,7 @@ child.arg(shell_command);
 
 // Here's the interesting part. Open a pipe, copy its write end, and
 // give both copies to the child.
-let Pair{mut read, write} = pipe().unwrap();
+let Pipe{mut read, write} = pipe().unwrap();
 let write_copy = write.try_clone().unwrap();
 child.stdout(stdio_from_file(write));
 child.stderr(stdio_from_file(write_copy));

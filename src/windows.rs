@@ -8,13 +8,13 @@ use std::process::Stdio;
 use std::mem;
 use std::ptr;
 
-use Pair;
+use Pipe;
 
 pub fn stdio_from_file(file: File) -> Stdio {
     unsafe { Stdio::from_raw_handle(file.into_raw_handle()) }
 }
 
-pub fn pipe() -> io::Result<Pair> {
+pub fn pipe() -> io::Result<Pipe> {
     let mut read_pipe: winapi::HANDLE = ptr::null_mut();
     let mut write_pipe: winapi::HANDLE = ptr::null_mut();
 
@@ -31,9 +31,9 @@ pub fn pipe() -> io::Result<Pair> {
         Err(io::Error::last_os_error())
     } else {
         unsafe {
-            Ok(Pair {
-                read: File::from_raw_handle(read_pipe),
-                write: File::from_raw_handle(write_pipe),
+            Ok(Pipe {
+                reader: File::from_raw_handle(read_pipe),
+                writer: File::from_raw_handle(write_pipe),
             })
         }
     }

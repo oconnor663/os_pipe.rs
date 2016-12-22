@@ -20,7 +20,7 @@
 //! waiting for EOF.
 //!
 //! ```rust
-//! use os_pipe::{pipe, Pair, stdio_from_file};
+//! use os_pipe::{pipe, Pipe, stdio_from_file};
 //! use std::io::prelude::*;
 //! use std::process::Command;
 //!
@@ -38,10 +38,10 @@
 //!
 //! // Here's the interesting part. Open a pipe, copy its write end, and
 //! // give both copies to the child.
-//! let Pair{mut read, write} = pipe().unwrap();
-//! let write_copy = write.try_clone().unwrap();
-//! child.stdout(stdio_from_file(write));
-//! child.stderr(stdio_from_file(write_copy));
+//! let Pipe{mut reader, writer} = pipe().unwrap();
+//! let writer_clone = writer.try_clone().unwrap();
+//! child.stdout(stdio_from_file(writer));
+//! child.stderr(stdio_from_file(writer_clone));
 //!
 //! // Now start the child running.
 //! let mut handle = child.spawn().unwrap();
@@ -54,7 +54,7 @@
 //!
 //! // Finally we can read all the output and clean up the child.
 //! let mut output = String::new();
-//! read.read_to_string(&mut output).unwrap();
+//! reader.read_to_string(&mut output).unwrap();
 //! handle.wait().unwrap();
 //! assert!(output.split_whitespace().eq(vec!["foo", "bar"]));
 //! ```
@@ -63,10 +63,10 @@ use std::fs::File;
 use std::io;
 use std::process::Stdio;
 
-/// The read and write ends of the pipe created by `pipe`.
-pub struct Pair {
-    pub read: File,
-    pub write: File,
+/// The read and write ends of a pipe created by `pipe`.
+pub struct Pipe {
+    pub reader: File,
+    pub writer: File,
 }
 
 /// Open a new pipe.
@@ -76,7 +76,7 @@ pub struct Pair {
 /// details might change). Pipes are non-inheritable, so new child
 /// processes won't receive a copy of them unless they're explicitly
 /// passed as stdin/stdout/stderr.
-pub fn pipe() -> io::Result<Pair> {
+pub fn pipe() -> io::Result<Pipe> {
     sys::pipe()
 }
 
@@ -131,7 +131,7 @@ mod tests {
     use std::process::Command;
     use std::sync::{Once, ONCE_INIT};
     use std::thread;
-    use ::Pair;
+    use ::Pipe;
 
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
@@ -158,21 +158,21 @@ mod tests {
 
     #[test]
     fn test_pipe_some_data() {
-        let mut pair = ::pipe().unwrap();
+        let ::Pipe { mut reader, mut writer } = ::pipe().unwrap();
         // A small write won't fill the pipe buffer, so it won't block this thread.
-        pair.write.write_all(b"some stuff").unwrap();
-        drop(pair.write);
+        writer.write_all(b"some stuff").unwrap();
+        drop(writer);
         let mut out = String::new();
-        pair.read.read_to_string(&mut out).unwrap();
+        reader.read_to_string(&mut out).unwrap();
         assert_eq!(out, "some stuff");
     }
 
     #[test]
     fn test_pipe_no_data() {
-        let mut pair = ::pipe().unwrap();
-        drop(pair.write);
+        let ::Pipe { mut reader, writer } = ::pipe().unwrap();
+        drop(writer);
         let mut out = String::new();
-        pair.read.read_to_string(&mut out).unwrap();
+        reader.read_to_string(&mut out).unwrap();
         assert_eq!(out, "");
     }
 
@@ -180,18 +180,18 @@ mod tests {
     fn test_pipe_a_megabyte_of_data_from_another_thread() {
         let data = vec![0xff; 1_000_000];
         let data_copy = data.clone();
-        let Pair { mut read, mut write } = ::pipe().unwrap();
+        let Pipe { mut reader, mut writer } = ::pipe().unwrap();
         let joiner = thread::spawn(move || {
-            write.write_all(&data_copy).unwrap();
+            writer.write_all(&data_copy).unwrap();
             // This drop happens automatically, so writing it out here is mostly
             // just for clarity. For what it's worth, it also guards against
             // accidentally forgetting to drop if we switch to scoped threads or
             // something like that and change this to a non-moving closure. The
-            // explicit drop forces `write` to move.
-            drop(write);
+            // explicit drop forces `writer` to move.
+            drop(writer);
         });
         let mut out = Vec::new();
-        read.read_to_end(&mut out).unwrap();
+        reader.read_to_end(&mut out).unwrap();
         joiner.join().unwrap();
         assert_eq!(out, data);
     }
@@ -201,8 +201,8 @@ mod tests {
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
         let mut output_pipe = ::pipe().unwrap();
-        let child_stdin = ::stdio_from_file(input_pipe.read);
-        let child_stdout = ::stdio_from_file(output_pipe.write);
+        let child_stdin = ::stdio_from_file(input_pipe.reader);
+        let child_stdout = ::stdio_from_file(output_pipe.writer);
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
@@ -215,14 +215,14 @@ mod tests {
             .unwrap();
 
         // Write to the child's stdin. This is a small write, so it shouldn't block.
-        input_pipe.write.write_all(b"hello").unwrap();
-        drop(input_pipe.write);
+        input_pipe.writer.write_all(b"hello").unwrap();
+        drop(input_pipe.writer);
 
         // Read from the child's stdout. If this child has accidentally inherited the write end of
         // its own stdin, then it will never exit, and this read will block forever. That's the
         // what this test is all about.
         let mut output = Vec::new();
-        output_pipe.read.read_to_end(&mut output).unwrap();
+        output_pipe.reader.read_to_end(&mut output).unwrap();
         child.wait().unwrap();
 
         // Confirm that we got the right bytes.
@@ -236,12 +236,12 @@ mod tests {
 
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
-        let child_stdin = ::stdio_from_file(input_pipe.read);
+        let child_stdin = ::stdio_from_file(input_pipe.reader);
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.
-        input_pipe.write.write_all(b"quack").unwrap();
-        drop(input_pipe.write);
+        input_pipe.writer.write_all(b"quack").unwrap();
+        drop(input_pipe.writer);
 
         // Use `swap` to run `cat`. `cat will read "quack" from stdin and write it to stdout. But
         // because we run it inside `swap`, that write should end up on stderr.

@@ -6,22 +6,22 @@ use std::mem;
 use std::os::unix::prelude::*;
 use std::process::Stdio;
 
-use Pair;
+use Pipe;
 
 pub fn stdio_from_file(file: File) -> Stdio {
     unsafe { Stdio::from_raw_fd(file.into_raw_fd()) }
 }
 
-pub fn pipe() -> io::Result<Pair> {
+pub fn pipe() -> io::Result<Pipe> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
     // effort to make that atomic on platforms that support it, to avoid the case where another
     // thread forks right after the pipes are created but before O_CLOEXEC is set.
     let (read_fd, write_fd) = nix::unistd::pipe2(nix::fcntl::O_CLOEXEC)?;
 
     unsafe {
-        Ok(Pair {
-            read: File::from_raw_fd(read_fd),
-            write: File::from_raw_fd(write_fd),
+        Ok(Pipe {
+            reader: File::from_raw_fd(read_fd),
+            writer: File::from_raw_fd(write_fd),
         })
     }
 }
