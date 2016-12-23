@@ -17,7 +17,7 @@ library, which handles most of the same use cases with much less
 code and no risk of deadlocks. `duct` can run the entire example
 below in one line of code.
 
-# Example
+## Example
 
 Join the stdout and stderr of a child process into a single stream,
 and read it. To do that we open a pipe, duplicate its write end, and
@@ -45,10 +45,10 @@ child.arg(shell_command);
 
 // Here's the interesting part. Open a pipe, copy its write end, and
 // give both copies to the child.
-let Pipe{mut read, write} = pipe().unwrap();
-let write_copy = write.try_clone().unwrap();
-child.stdout(stdio_from_file(write));
-child.stderr(stdio_from_file(write_copy));
+let Pipe{mut reader, writer} = pipe().unwrap();
+let writer_clone = writer.try_clone().unwrap();
+child.stdout(stdio_from_file(writer));
+child.stderr(stdio_from_file(writer_clone));
 
 // Now start the child running.
 let mut handle = child.spawn().unwrap();
@@ -61,7 +61,7 @@ drop(child);
 
 // Finally we can read all the output and clean up the child.
 let mut output = String::new();
-read.read_to_string(&mut output).unwrap();
+reader.read_to_string(&mut output).unwrap();
 handle.wait().unwrap();
 assert!(output.split_whitespace().eq(vec!["foo", "bar"]));
 ```
