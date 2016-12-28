@@ -25,7 +25,7 @@
 //! waiting for EOF.
 //!
 //! ```rust
-//! use os_pipe::{pipe, Pipe, FromFile};
+//! use os_pipe::{pipe, FromFile};
 //! use std::io::prelude::*;
 //! use std::process::{Command, Stdio};
 //!
@@ -43,7 +43,7 @@
 //!
 //! // Here's the interesting part. Open a pipe, copy its write end, and
 //! // give both copies to the child.
-//! let Pipe{mut reader, writer} = pipe().unwrap();
+//! let (mut reader, writer) = pipe().unwrap();
 //! let writer_clone = writer.try_clone().unwrap();
 //! child.stdout(Stdio::from_file(writer));
 //! child.stderr(Stdio::from_file(writer_clone));
@@ -68,24 +68,73 @@ use std::fs::File;
 use std::io;
 use std::process::Stdio;
 
-/// The read and write ends of a pipe created by [`pipe`](fn.pipe.html).
-pub struct Pipe {
-    pub reader: File,
-    pub writer: File,
+/// The reading end of a pipe, returned by [`pipe`](fn.pipe.html).
+pub struct PipeReader(File);
+
+/// The writing end of a pipe, returned by [`pipe`](fn.pipe.html).
+pub struct PipeWriter(File);
+
+impl PipeReader {
+    pub fn try_clone(&self) -> io::Result<PipeReader> {
+        self.0.try_clone().map(PipeReader)
+    }
 }
 
-/// Open a new pipe.
+impl PipeWriter {
+    pub fn try_clone(&self) -> io::Result<PipeWriter> {
+        self.0.try_clone().map(PipeWriter)
+    }
+}
+
+impl io::Read for PipeReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
+}
+
+impl<'a> io::Read for &'a PipeReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let mut file_ref = &self.0;
+        file_ref.read(buf)
+    }
+}
+
+impl io::Write for PipeWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
+}
+
+impl<'a> io::Write for &'a PipeWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let mut file_ref = &self.0;
+        file_ref.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        let mut file_ref = &self.0;
+        file_ref.flush()
+    }
+}
+
+/// Open a new pipe and return a [`PipeReader`](struct.PipeReader.html)
+/// and [`PipeWriter`](struct.PipeWriter.html) pair.
 ///
 /// This corresponds to the `pipe2` library call on Posix and the
 /// `CreatePipe` library call on Windows (though these implementation
 /// details might change). Pipes are non-inheritable, so new child
 /// processes won't receive a copy of them unless they're explicitly
 /// passed as stdin/stdout/stderr.
-pub fn pipe() -> io::Result<Pipe> {
+pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     sys::pipe()
 }
 
-/// Get a duplicated copy of the current process's standard input pipe.
+/// Get a copy of the current process's standard input pipe, as a
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
 ///
 /// This isn't intended for doing IO, rather it's in a form that can be
 /// passed directly to the `std::process::Command` API.
@@ -93,7 +142,8 @@ pub fn parent_stdin() -> io::Result<Stdio> {
     sys::parent_stdin()
 }
 
-/// Get a duplicated copy of the current process's standard output pipe.
+/// Get a copy of the current process's standard output pipe, as a
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
 ///
 /// This isn't intended for doing IO, rather it's in a form that can be
 /// passed directly to the `std::process::Command` API.
@@ -101,7 +151,8 @@ pub fn parent_stdout() -> io::Result<Stdio> {
     sys::parent_stdout()
 }
 
-/// Get a duplicated copy of the current process's standard error pipe.
+/// Get a copy of the current process's standard error pipe, as a
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
 ///
 /// This isn't intended for doing IO, rather it's in a form that can be
 /// passed directly to the `std::process::Command` API.
@@ -110,10 +161,11 @@ pub fn parent_stderr() -> io::Result<Stdio> {
 }
 
 /// Safely convert between two types that hold a file descriptor, like
-/// `std::fs::File` and `std::process::Stdio`.
+/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) and
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
 ///
 /// The standard library supports this conversion, but it requires
-/// platform-specific traits and takes an `unsafe` call. This is a safe
+/// platform-specific traits and an `unsafe` call. This is a safe
 /// wrapper for convenience.
 pub trait FromFile<T> {
     fn from_file(T) -> Self;
@@ -134,7 +186,6 @@ mod tests {
     use std::process::Command;
     use std::sync::{Once, ONCE_INIT};
     use std::thread;
-    use ::Pipe;
 
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
@@ -161,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_pipe_some_data() {
-        let ::Pipe { mut reader, mut writer } = ::pipe().unwrap();
+        let (mut reader, mut writer) = ::pipe().unwrap();
         // A small write won't fill the pipe buffer, so it won't block this thread.
         writer.write_all(b"some stuff").unwrap();
         drop(writer);
@@ -171,8 +222,25 @@ mod tests {
     }
 
     #[test]
+    fn test_pipe_some_data_with_refs() {
+        // As with `File`, there's a second set of impls for shared
+        // refs. Test those.
+        let (reader, writer) = ::pipe().unwrap();
+        let mut reader_ref = &reader;
+        {
+            let mut writer_ref = &writer;
+            // A small write won't fill the pipe buffer, so it won't block this thread.
+            writer_ref.write_all(b"some stuff").unwrap();
+        }
+        drop(writer);
+        let mut out = String::new();
+        reader_ref.read_to_string(&mut out).unwrap();
+        assert_eq!(out, "some stuff");
+    }
+
+    #[test]
     fn test_pipe_no_data() {
-        let ::Pipe { mut reader, writer } = ::pipe().unwrap();
+        let (mut reader, writer) = ::pipe().unwrap();
         drop(writer);
         let mut out = String::new();
         reader.read_to_string(&mut out).unwrap();
@@ -183,7 +251,7 @@ mod tests {
     fn test_pipe_a_megabyte_of_data_from_another_thread() {
         let data = vec![0xff; 1_000_000];
         let data_copy = data.clone();
-        let Pipe { mut reader, mut writer } = ::pipe().unwrap();
+        let (mut reader, mut writer) = ::pipe().unwrap();
         let joiner = thread::spawn(move || {
             writer.write_all(&data_copy).unwrap();
             // This drop happens automatically, so writing it out here is mostly
@@ -202,10 +270,10 @@ mod tests {
     #[test]
     fn test_pipes_are_not_inheritable() {
         // Create pipes for a child process.
-        let mut input_pipe = ::pipe().unwrap();
-        let mut output_pipe = ::pipe().unwrap();
-        let child_stdin = ::FromFile::from_file(input_pipe.reader);
-        let child_stdout = ::FromFile::from_file(output_pipe.writer);
+        let (input_reader, mut input_writer) = ::pipe().unwrap();
+        let (mut output_reader, output_writer) = ::pipe().unwrap();
+        let child_stdin = ::FromFile::from_file(input_reader);
+        let child_stdout = ::FromFile::from_file(output_writer);
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
@@ -218,14 +286,14 @@ mod tests {
             .unwrap();
 
         // Write to the child's stdin. This is a small write, so it shouldn't block.
-        input_pipe.writer.write_all(b"hello").unwrap();
-        drop(input_pipe.writer);
+        input_writer.write_all(b"hello").unwrap();
+        drop(input_writer);
 
         // Read from the child's stdout. If this child has accidentally inherited the write end of
         // its own stdin, then it will never exit, and this read will block forever. That's the
         // what this test is all about.
         let mut output = Vec::new();
-        output_pipe.reader.read_to_end(&mut output).unwrap();
+        output_reader.read_to_end(&mut output).unwrap();
         child.wait().unwrap();
 
         // Confirm that we got the right bytes.
@@ -238,13 +306,13 @@ mod tests {
         // parent_stderr() to swap the outputs for another child that it spawns.
 
         // Create pipes for a child process.
-        let mut input_pipe = ::pipe().unwrap();
-        let child_stdin = ::FromFile::from_file(input_pipe.reader);
+        let (reader, mut writer) = ::pipe().unwrap();
+        let child_stdin = ::FromFile::from_file(reader);
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.
-        input_pipe.writer.write_all(b"quack").unwrap();
-        drop(input_pipe.writer);
+        writer.write_all(b"quack").unwrap();
+        drop(writer);
 
         // Use `swap` to run `cat`. `cat will read "quack" from stdin and write it to stdout. But
         // because we run it inside `swap`, that write should end up on stderr.
@@ -262,5 +330,19 @@ mod tests {
         // Confirm that we got the right bytes.
         assert_eq!(b"", &*output.stdout);
         assert_eq!(b"quack", &*output.stderr);
+    }
+
+    #[test]
+    fn test_try_clone() {
+        let (reader, writer) = ::pipe().unwrap();
+        let mut reader_clone = reader.try_clone().unwrap();
+        let mut writer_clone = writer.try_clone().unwrap();
+        // A small write won't fill the pipe buffer, so it won't block this thread.
+        writer_clone.write_all(b"some stuff").unwrap();
+        drop(writer);
+        drop(writer_clone);
+        let mut out = String::new();
+        reader_clone.read_to_string(&mut out).unwrap();
+        assert_eq!(out, "some stuff");
     }
 }

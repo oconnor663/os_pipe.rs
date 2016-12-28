@@ -6,21 +6,17 @@ use std::mem;
 use std::os::unix::prelude::*;
 use std::process::Stdio;
 
-use Pipe;
+use PipeReader;
+use PipeWriter;
 use FromFile;
 
-pub fn pipe() -> io::Result<Pipe> {
+pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
     // effort to make that atomic on platforms that support it, to avoid the case where another
     // thread forks right after the pipes are created but before O_CLOEXEC is set.
     let (read_fd, write_fd) = nix::unistd::pipe2(nix::fcntl::O_CLOEXEC)?;
 
-    unsafe {
-        Ok(Pipe {
-            reader: File::from_raw_fd(read_fd),
-            writer: File::from_raw_fd(write_fd),
-        })
-    }
+    unsafe { Ok((PipeReader::from_raw_fd(read_fd), PipeWriter::from_raw_fd(write_fd))) }
 }
 
 pub fn parent_stdin() -> io::Result<Stdio> {
@@ -46,5 +42,41 @@ impl<F: IntoRawFd, T: FromRawFd> FromFile<F> for T {
     fn from_file(file: F) -> T {
         let fd = file.into_raw_fd();
         unsafe { FromRawFd::from_raw_fd(fd) }
+    }
+}
+
+impl IntoRawFd for PipeReader {
+    fn into_raw_fd(self) -> RawFd {
+        self.0.into_raw_fd()
+    }
+}
+
+impl AsRawFd for PipeReader {
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.as_raw_fd()
+    }
+}
+
+impl FromRawFd for PipeReader {
+    unsafe fn from_raw_fd(fd: RawFd) -> PipeReader {
+        PipeReader(File::from_raw_fd(fd))
+    }
+}
+
+impl IntoRawFd for PipeWriter {
+    fn into_raw_fd(self) -> RawFd {
+        self.0.into_raw_fd()
+    }
+}
+
+impl AsRawFd for PipeWriter {
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.as_raw_fd()
+    }
+}
+
+impl FromRawFd for PipeWriter {
+    unsafe fn from_raw_fd(fd: RawFd) -> PipeWriter {
+        PipeWriter(File::from_raw_fd(fd))
     }
 }

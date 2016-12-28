@@ -8,10 +8,11 @@ use std::process::Stdio;
 use std::mem;
 use std::ptr;
 
-use Pipe;
+use PipeReader;
+use PipeWriter;
 use FromFile;
 
-pub fn pipe() -> io::Result<Pipe> {
+pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let mut read_pipe: winapi::HANDLE = ptr::null_mut();
     let mut write_pipe: winapi::HANDLE = ptr::null_mut();
 
@@ -28,10 +29,7 @@ pub fn pipe() -> io::Result<Pipe> {
         Err(io::Error::last_os_error())
     } else {
         unsafe {
-            Ok(Pipe {
-                reader: File::from_raw_handle(read_pipe),
-                writer: File::from_raw_handle(write_pipe),
-            })
+            Ok((PipeReader::from_raw_handle(read_pipe), PipeWriter::from_raw_handle(write_pipe)))
         }
     }
 }
@@ -71,5 +69,41 @@ impl<F: IntoRawHandle, T: FromRawHandle> FromFile<F> for T {
     fn from_file(file: F) -> T {
         let handle = file.into_raw_handle();
         unsafe { FromRawHandle::from_raw_handle(handle) }
+    }
+}
+
+impl IntoRawHandle for PipeReader {
+    fn into_raw_handle(self) -> RawHandle {
+        self.0.into_raw_handle()
+    }
+}
+
+impl AsRawHandle for PipeReader {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.0.as_raw_handle()
+    }
+}
+
+impl FromRawHandle for PipeReader {
+    unsafe fn from_raw_handle(handle: RawHandle) -> PipeReader {
+        PipeReader(File::from_raw_handle(handle))
+    }
+}
+
+impl IntoRawHandle for PipeWriter {
+    fn into_raw_handle(self) -> RawHandle {
+        self.0.into_raw_handle()
+    }
+}
+
+impl AsRawHandle for PipeWriter {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.0.as_raw_handle()
+    }
+}
+
+impl FromRawHandle for PipeWriter {
+    unsafe fn from_raw_handle(handle: RawHandle) -> PipeWriter {
+        PipeWriter(File::from_raw_handle(handle))
     }
 }
