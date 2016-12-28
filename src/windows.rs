@@ -9,10 +9,7 @@ use std::mem;
 use std::ptr;
 
 use Pipe;
-
-pub fn stdio_from_file(file: File) -> Stdio {
-    unsafe { Stdio::from_raw_handle(file.into_raw_handle()) }
-}
+use FromFile;
 
 pub fn pipe() -> io::Result<Pipe> {
     let mut read_pipe: winapi::HANDLE = ptr::null_mut();
@@ -67,5 +64,12 @@ fn dup_std_handle(which: winapi::DWORD) -> io::Result<Stdio> {
     let temp_file = unsafe { File::from_raw_handle(handle) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
     mem::forget(temp_file);  // Avoid closing the global handle.
-    dup_result.map(stdio_from_file)
+    dup_result.map(Stdio::from_file)
+}
+
+impl<F: IntoRawHandle, T: FromRawHandle> FromFile<F> for T {
+    fn from_file(file: F) -> T {
+        let handle = file.into_raw_handle();
+        unsafe { FromRawHandle::from_raw_handle(handle) }
+    }
 }

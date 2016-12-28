@@ -7,10 +7,7 @@ use std::os::unix::prelude::*;
 use std::process::Stdio;
 
 use Pipe;
-
-pub fn stdio_from_file(file: File) -> Stdio {
-    unsafe { Stdio::from_raw_fd(file.into_raw_fd()) }
-}
+use FromFile;
 
 pub fn pipe() -> io::Result<Pipe> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
@@ -42,5 +39,12 @@ fn dup_fd(fd: RawFd) -> io::Result<Stdio> {
     let temp_file = unsafe { File::from_raw_fd(fd) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
     mem::forget(temp_file);  // Prevent drop() to avoid closing fd.
-    dup_result.map(stdio_from_file)
+    dup_result.map(Stdio::from_file)
+}
+
+impl<F: IntoRawFd, T: FromRawFd> FromFile<F> for T {
+    fn from_file(file: F) -> T {
+        let fd = file.into_raw_fd();
+        unsafe { FromRawFd::from_raw_fd(fd) }
+    }
 }

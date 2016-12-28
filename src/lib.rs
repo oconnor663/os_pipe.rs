@@ -25,9 +25,9 @@
 //! waiting for EOF.
 //!
 //! ```rust
-//! use os_pipe::{pipe, Pipe, stdio_from_file};
+//! use os_pipe::{pipe, Pipe, FromFile};
 //! use std::io::prelude::*;
-//! use std::process::Command;
+//! use std::process::{Command, Stdio};
 //!
 //! // This command prints "foo" to stdout and "bar" to stderr. It
 //! // works on both Unix and Windows, though there are whitespace
@@ -45,8 +45,8 @@
 //! // give both copies to the child.
 //! let Pipe{mut reader, writer} = pipe().unwrap();
 //! let writer_clone = writer.try_clone().unwrap();
-//! child.stdout(stdio_from_file(writer));
-//! child.stderr(stdio_from_file(writer_clone));
+//! child.stdout(Stdio::from_file(writer));
+//! child.stderr(Stdio::from_file(writer_clone));
 //!
 //! // Now start the child running.
 //! let mut handle = child.spawn().unwrap();
@@ -109,16 +109,14 @@ pub fn parent_stderr() -> io::Result<Stdio> {
     sys::parent_stderr()
 }
 
-/// Safely convert a `std::fs::File` to a `std::process::Stdio`.
+/// Safely convert between two types that hold a file descriptor, like
+/// `std::fs::File` and `std::process::Stdio`.
 ///
 /// The standard library supports this conversion, but it requires
 /// platform-specific traits and takes an `unsafe` call. This is a safe
-/// wrapper for convenience. Currently there's not really such a thing
-/// as a "closed file" in Rust, since closing requires dropping, but if
-/// Rust ever introduces closed files in the future this function will
-/// panic on them.
-pub fn stdio_from_file(file: File) -> Stdio {
-    sys::stdio_from_file(file)
+/// wrapper for convenience.
+pub trait FromFile<T> {
+    fn from_file(T) -> Self;
 }
 
 #[cfg(not(windows))]
@@ -206,8 +204,8 @@ mod tests {
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
         let mut output_pipe = ::pipe().unwrap();
-        let child_stdin = ::stdio_from_file(input_pipe.reader);
-        let child_stdout = ::stdio_from_file(output_pipe.writer);
+        let child_stdin = ::FromFile::from_file(input_pipe.reader);
+        let child_stdout = ::FromFile::from_file(output_pipe.writer);
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
@@ -241,7 +239,7 @@ mod tests {
 
         // Create pipes for a child process.
         let mut input_pipe = ::pipe().unwrap();
-        let child_stdin = ::stdio_from_file(input_pipe.reader);
+        let child_stdin = ::FromFile::from_file(input_pipe.reader);
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.
