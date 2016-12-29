@@ -15,7 +15,7 @@ Usage note: The main purpose of `os_pipe` is to support the
 higher-level [`duct`](https://github.com/oconnor663/duct.rs)
 library, which handles most of the same use cases with much less
 code and no risk of deadlocks. `duct` can run the entire example
-below in one line of code.
+below in [one line of code](https://docs.rs/duct/#example).
 
 ## Example
 
@@ -27,9 +27,9 @@ careful to close the write ends first though, or reading will block
 waiting for EOF.
 
 ```rust
-use os_pipe::{pipe, Pipe, stdio_from_file};
+use os_pipe::{pipe, FromFile};
 use std::io::prelude::*;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 // This command prints "foo" to stdout and "bar" to stderr. It
 // works on both Unix and Windows, though there are whitespace
@@ -45,10 +45,10 @@ child.arg(shell_command);
 
 // Here's the interesting part. Open a pipe, copy its write end, and
 // give both copies to the child.
-let Pipe{mut reader, writer} = pipe().unwrap();
+let (mut reader, writer) = pipe().unwrap();
 let writer_clone = writer.try_clone().unwrap();
-child.stdout(stdio_from_file(writer));
-child.stderr(stdio_from_file(writer_clone));
+child.stdout(Stdio::from_file(writer));
+child.stderr(Stdio::from_file(writer_clone));
 
 // Now start the child running.
 let mut handle = child.spawn().unwrap();
