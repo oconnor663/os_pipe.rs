@@ -61,7 +61,7 @@ fn dup_std_handle(which: winapi::DWORD) -> io::Result<Stdio> {
     // to make sure that the file is never dropped.
     let temp_file = unsafe { File::from_raw_handle(handle) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
-    mem::forget(temp_file);  // Avoid closing the global handle.
+    temp_file.into_raw_handle();  // Prevent closing handle on drop().
     dup_result.map(Stdio::from_file)
 }
 

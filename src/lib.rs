@@ -333,6 +333,26 @@ mod tests {
     }
 
     #[test]
+    fn test_parent_handles_dont_close() {
+        // Open and close each parent pipe multiple times. If this closes the
+        // original, subsequent opens should fail.
+        let stdin = ::parent_stdin().unwrap();
+        drop(stdin);
+        let stdin = ::parent_stdin().unwrap();
+        drop(stdin);
+
+        let stdout = ::parent_stdout().unwrap();
+        drop(stdout);
+        let stdout = ::parent_stdout().unwrap();
+        drop(stdout);
+
+        let stderr = ::parent_stderr().unwrap();
+        drop(stderr);
+        let stderr = ::parent_stderr().unwrap();
+        drop(stderr);
+    }
+
+    #[test]
     fn test_try_clone() {
         let (reader, writer) = ::pipe().unwrap();
         let mut reader_clone = reader.try_clone().unwrap();

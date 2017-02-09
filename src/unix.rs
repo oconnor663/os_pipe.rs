@@ -2,7 +2,6 @@ extern crate nix;
 
 use std::fs::File;
 use std::io;
-use std::mem;
 use std::os::unix::prelude::*;
 use std::process::Stdio;
 
@@ -34,7 +33,7 @@ pub fn parent_stderr() -> io::Result<Stdio> {
 fn dup_fd(fd: RawFd) -> io::Result<Stdio> {
     let temp_file = unsafe { File::from_raw_fd(fd) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
-    mem::forget(temp_file);  // Prevent drop() to avoid closing fd.
+    temp_file.into_raw_fd();  // Prevent closing fd on drop().
     dup_result.map(Stdio::from_file)
 }
 
