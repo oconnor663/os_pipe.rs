@@ -5,12 +5,11 @@ use std::fs::File;
 use std::io;
 use std::os::windows::prelude::*;
 use std::process::Stdio;
-use std::mem;
 use std::ptr;
 
 use PipeReader;
 use PipeWriter;
-use FromFile;
+use IntoStdio;
 
 pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let mut read_pipe: winapi::HANDLE = ptr::null_mut();
@@ -62,13 +61,13 @@ fn dup_std_handle(which: winapi::DWORD) -> io::Result<Stdio> {
     let temp_file = unsafe { File::from_raw_handle(handle) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
     temp_file.into_raw_handle();  // Prevent closing handle on drop().
-    dup_result.map(Stdio::from_file)
+    dup_result.map(File::into_stdio)
 }
 
-impl<F: IntoRawHandle, T: FromRawHandle> FromFile<F> for T {
-    fn from_file(file: F) -> T {
-        let handle = file.into_raw_handle();
-        unsafe { FromRawHandle::from_raw_handle(handle) }
+impl<T: IntoRawHandle> IntoStdio for T {
+    fn into_stdio(self) -> Stdio {
+        let handle = self.into_raw_handle();
+        unsafe { Stdio::from_raw_handle(handle) }
     }
 }
 

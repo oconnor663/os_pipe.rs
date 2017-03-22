@@ -25,7 +25,7 @@
 //! waiting for EOF.
 //!
 //! ```rust
-//! use os_pipe::{pipe, FromFile};
+//! use os_pipe::{pipe, IntoStdio};
 //! use std::io::prelude::*;
 //! use std::process::{Command, Stdio};
 //!
@@ -45,8 +45,8 @@
 //! // give both copies to the child.
 //! let (mut reader, writer) = pipe().unwrap();
 //! let writer_clone = writer.try_clone().unwrap();
-//! child.stdout(Stdio::from_file(writer));
-//! child.stderr(Stdio::from_file(writer_clone));
+//! child.stdout(writer.into_stdio());
+//! child.stderr(writer_clone.into_stdio());
 //!
 //! // Now start the child running.
 //! let mut handle = child.spawn().unwrap();
@@ -160,15 +160,17 @@ pub fn parent_stderr() -> io::Result<Stdio> {
     sys::parent_stderr()
 }
 
-/// Safely convert between two types that hold a file descriptor, like
-/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) and
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
+/// A trait for types that hold file handles, like
+/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html),
+/// [`PipeReader`](struct.PipeReader.html), and
+/// [`PipeWriter`](struct.PipeWriter.html), which provides a conversion to
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
 ///
-/// The standard library supports this conversion, but it requires
-/// platform-specific traits and an `unsafe` call. This is a safe
-/// wrapper for convenience.
-pub trait FromFile<T> {
-    fn from_file(T) -> Self;
+/// The standard library almost supports this conversion, but it requires
+/// platform-specific traits and an `unsafe` call. This is a safe wrapper for
+/// convenience.
+pub trait IntoStdio {
+    fn into_stdio(self) -> Stdio;
 }
 
 #[cfg(not(windows))]
@@ -186,6 +188,7 @@ mod tests {
     use std::process::Command;
     use std::sync::{Once, ONCE_INIT};
     use std::thread;
+    use ::IntoStdio;
 
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
@@ -272,8 +275,8 @@ mod tests {
         // Create pipes for a child process.
         let (input_reader, mut input_writer) = ::pipe().unwrap();
         let (mut output_reader, output_writer) = ::pipe().unwrap();
-        let child_stdin = ::FromFile::from_file(input_reader);
-        let child_stdout = ::FromFile::from_file(output_writer);
+        let child_stdin = input_reader.into_stdio();
+        let child_stdout = output_writer.into_stdio();
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
@@ -307,7 +310,7 @@ mod tests {
 
         // Create pipes for a child process.
         let (reader, mut writer) = ::pipe().unwrap();
-        let child_stdin = ::FromFile::from_file(reader);
+        let child_stdin = reader.into_stdio();
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.

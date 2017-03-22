@@ -7,7 +7,7 @@ use std::process::Stdio;
 
 use PipeReader;
 use PipeWriter;
-use FromFile;
+use IntoStdio;
 
 pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
@@ -34,13 +34,13 @@ fn dup_fd(fd: RawFd) -> io::Result<Stdio> {
     let temp_file = unsafe { File::from_raw_fd(fd) };
     let dup_result = temp_file.try_clone();  // No short-circuit here!
     temp_file.into_raw_fd();  // Prevent closing fd on drop().
-    dup_result.map(Stdio::from_file)
+    dup_result.map(File::into_stdio)
 }
 
-impl<F: IntoRawFd, T: FromRawFd> FromFile<F> for T {
-    fn from_file(file: F) -> T {
-        let fd = file.into_raw_fd();
-        unsafe { FromRawFd::from_raw_fd(fd) }
+impl<T: IntoRawFd> IntoStdio for T {
+    fn into_stdio(self) -> Stdio {
+        let fd = self.into_raw_fd();
+        unsafe { Stdio::from_raw_fd(fd) }
     }
 }
 
