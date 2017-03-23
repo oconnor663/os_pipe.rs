@@ -69,9 +69,11 @@ use std::io;
 use std::process::Stdio;
 
 /// The reading end of a pipe, returned by [`pipe`](fn.pipe.html).
+#[derive(Debug)]
 pub struct PipeReader(File);
 
 /// The writing end of a pipe, returned by [`pipe`](fn.pipe.html).
+#[derive(Debug)]
 pub struct PipeWriter(File);
 
 impl PipeReader {
@@ -367,5 +369,11 @@ mod tests {
         let mut out = String::new();
         reader_clone.read_to_string(&mut out).unwrap();
         assert_eq!(out, "some stuff");
+    }
+
+    #[test]
+    fn test_debug() {
+        let (reader, writer) = ::pipe().unwrap();
+        format!("{:?} {:?}", reader, writer);
     }
 }
