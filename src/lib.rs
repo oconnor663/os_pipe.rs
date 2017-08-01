@@ -190,7 +190,7 @@ mod tests {
     use std::process::Command;
     use std::sync::{Once, ONCE_INIT};
     use std::thread;
-    use ::IntoStdio;
+    use IntoStdio;
 
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
@@ -204,15 +204,19 @@ mod tests {
                 build_command.arg("--release");
             }
             let build_status = build_command.status().unwrap();
-            assert!(build_status.success(),
-                    "Cargo failed to build associated binaries.");
+            assert!(
+                build_status.success(),
+                "Cargo failed to build associated binaries."
+            );
         });
         let flavor = if cfg!(debug_assertions) {
             "debug"
         } else {
             "release"
         };
-        Path::new("target").join(flavor).join(name).with_extension(EXE_EXTENSION)
+        Path::new("target").join(flavor).join(name).with_extension(
+            EXE_EXTENSION,
+        )
     }
 
     #[test]
@@ -328,9 +332,11 @@ mod tests {
             .unwrap();
 
         // Check for a clean exit.
-        assert!(output.status.success(),
-                "child process returned {:#?}",
-                output);
+        assert!(
+            output.status.success(),
+            "child process returned {:#?}",
+            output
+        );
 
         // Confirm that we got the right bytes.
         assert_eq!(b"", &*output.stdout);
