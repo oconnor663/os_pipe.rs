@@ -2,8 +2,11 @@ extern crate nix;
 
 use std::fs::File;
 use std::io;
+use std::io::ErrorKind;
 use std::os::unix::prelude::*;
 use std::process::Stdio;
+
+use sys::nix::Error::Sys;
 
 use PipeReader;
 use PipeWriter;
@@ -13,7 +16,7 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
     // effort to make that atomic on platforms that support it, to avoid the case where another
     // thread forks right after the pipes are created but before O_CLOEXEC is set.
-    let (read_fd, write_fd) = nix::unistd::pipe2(nix::fcntl::O_CLOEXEC)?;
+    let (read_fd, write_fd) = nix::unistd::pipe2(nix::fcntl::O_CLOEXEC).map_err(nix_err_to_io_err)?;
 
     unsafe {
         Ok((
@@ -40,6 +43,17 @@ fn dup_fd(fd: RawFd) -> io::Result<Stdio> {
     let dup_result = temp_file.try_clone(); // No short-circuit here!
     temp_file.into_raw_fd(); // Prevent closing fd on drop().
     dup_result.map(File::into_stdio)
+}
+
+fn nix_err_to_io_err(err: nix::Error) -> io::Error {
+    match err {
+        Sys(err_no) => {
+            io::Error::from(err_no)
+        }
+        _ => {
+            io::Error::new(ErrorKind::InvalidData, err)
+        }
+    }
 }
 
 impl<T: IntoRawFd> IntoStdio for T {
