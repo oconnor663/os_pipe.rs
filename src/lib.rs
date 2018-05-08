@@ -214,9 +214,10 @@ mod tests {
         } else {
             "release"
         };
-        Path::new("target").join(flavor).join(name).with_extension(
-            EXE_EXTENSION,
-        )
+        Path::new("target")
+            .join(flavor)
+            .join(name)
+            .with_extension(EXE_EXTENSION)
     }
 
     #[test]
