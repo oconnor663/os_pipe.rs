@@ -5,9 +5,9 @@ use std::io;
 use std::os::unix::prelude::*;
 use std::process::Stdio;
 
+use IntoStdio;
 use PipeReader;
 use PipeWriter;
-use IntoStdio;
 
 pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best

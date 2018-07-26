@@ -10,9 +10,9 @@ use self::winapi::shared::minwindef::DWORD;
 use self::winapi::shared::ntdef::{HANDLE, PHANDLE};
 use self::winapi::um::{handleapi, namedpipeapi, processenv, winbase};
 
+use IntoStdio;
 use PipeReader;
 use PipeWriter;
-use IntoStdio;
 
 pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let mut read_pipe: HANDLE = ptr::null_mut();

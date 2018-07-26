@@ -184,8 +184,8 @@ mod sys;
 
 #[cfg(test)]
 mod tests {
-    use std::io::prelude::*;
     use std::env::consts::EXE_EXTENSION;
+    use std::io::prelude::*;
     use std::path::{Path, PathBuf};
     use std::process::Command;
     use std::sync::{Once, ONCE_INIT};

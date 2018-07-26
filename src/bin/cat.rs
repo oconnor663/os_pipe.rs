@@ -2,7 +2,6 @@
 
 /// Windows doesn't have a native equivalent for cat, so we use this little
 /// Rust implementation instead.
-
 use std::io::{copy, stdin, stdout};
 
 fn main() {
