@@ -15,6 +15,19 @@
 //! code and no risk of deadlocks. `duct` can run the entire example
 //! below in [one line of code](https://docs.rs/duct/#example).
 //!
+//! # Changes
+//!
+//! - 0.7.0
+//!   - Implement `From<PipeReader>` and `From<PipeWriter>` for `Stdio` and
+//!     `File`. The latter is useful for APIs that require a `File`, like
+//!     `memmap`, together with `dup_stdin` etc. below.
+//!   - Remove the `IntoStdio` trait. Since Rust 1.20, `PipeReader` and
+//!     `PipeWriter` (as well as the standard `File`) can be passed directly to
+//!     `std::process::Command`, without any extra conversion.
+//!   - Replace `parent_stdin`/`parent_stdout`/`parent_stderr` with
+//!     `dup_stdin`/`dup_stdout`/`dup_stderr`, which return
+//!     `PipeReader` or `PipeWriter` instead of `Stdio.`
+//!
 //! # Example
 //!
 //! Join the stdout and stderr of a child process into a single stream,
