@@ -2,10 +2,9 @@ extern crate nix;
 
 use std::fs::File;
 use std::io;
+use std::mem::ManuallyDrop;
 use std::os::unix::prelude::*;
-use std::process::Stdio;
 
-use IntoStdio;
 use PipeReader;
 use PipeWriter;
 
@@ -24,23 +23,24 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     }
 }
 
-pub fn parent_stdin() -> io::Result<Stdio> {
-    dup_fd(nix::libc::STDIN_FILENO)
+pub fn dup_stdin() -> io::Result<PipeReader> {
+    Ok(PipeReader(dup_fd(nix::libc::STDIN_FILENO)?))
 }
 
-pub fn parent_stdout() -> io::Result<Stdio> {
-    dup_fd(nix::libc::STDOUT_FILENO)
+pub fn dup_stdout() -> io::Result<PipeWriter> {
+    Ok(PipeWriter(dup_fd(nix::libc::STDOUT_FILENO)?))
 }
 
-pub fn parent_stderr() -> io::Result<Stdio> {
-    dup_fd(nix::libc::STDERR_FILENO)
+pub fn dup_stderr() -> io::Result<PipeWriter> {
+    Ok(PipeWriter(dup_fd(nix::libc::STDERR_FILENO)?))
 }
 
-fn dup_fd(fd: RawFd) -> io::Result<Stdio> {
-    let temp_file = unsafe { File::from_raw_fd(fd) };
-    let dup_result = temp_file.try_clone(); // No short-circuit here!
-    temp_file.into_raw_fd(); // Prevent closing fd on drop().
-    dup_result.map(File::into_stdio)
+fn dup_fd(fd: RawFd) -> io::Result<File> {
+    // We wrap the original file descriptor in a File, so that we can use
+    // try_clone. Dropping the File would close the original descriptor,
+    // though, so we wrap it in ManuallyDrop to prevent that.
+    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
+    temp_file.try_clone()
 }
 
 fn nix_err_to_io_err(err: nix::Error) -> io::Error {
@@ -48,13 +48,6 @@ fn nix_err_to_io_err(err: nix::Error) -> io::Error {
         io::Error::from(err_no)
     } else {
         panic!("unexpected nix error type: {:?}", err)
-    }
-}
-
-impl<T: IntoRawFd> IntoStdio for T {
-    fn into_stdio(self) -> Stdio {
-        let fd = self.into_raw_fd();
-        unsafe { Stdio::from_raw_fd(fd) }
     }
 }
 

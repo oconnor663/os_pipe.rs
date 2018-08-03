@@ -10,9 +10,9 @@ use std::ffi::OsString;
 use std::process::Command;
 
 fn main() {
-    let stdin = os_pipe::parent_stdin().unwrap();
-    let stdout = os_pipe::parent_stdout().unwrap();
-    let stderr = os_pipe::parent_stderr().unwrap();
+    let stdin = os_pipe::dup_stdin().unwrap();
+    let stdout = os_pipe::dup_stdout().unwrap();
+    let stderr = os_pipe::dup_stderr().unwrap();
 
     let args: Vec<OsString> = args_os().collect();
     let mut child = Command::new(&args[1]);

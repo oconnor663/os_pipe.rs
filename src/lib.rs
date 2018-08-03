@@ -25,7 +25,7 @@
 //! waiting for EOF.
 //!
 //! ```rust
-//! use os_pipe::{pipe, IntoStdio};
+//! use os_pipe::pipe;
 //! use std::io::prelude::*;
 //! use std::process::{Command, Stdio};
 //!
@@ -45,8 +45,8 @@
 //! // give both copies to the child.
 //! let (mut reader, writer) = pipe().unwrap();
 //! let writer_clone = writer.try_clone().unwrap();
-//! child.stdout(writer.into_stdio());
-//! child.stderr(writer_clone.into_stdio());
+//! child.stdout(writer);
+//! child.stderr(writer_clone);
 //!
 //! // Now start the child running.
 //! let mut handle = child.spawn().unwrap();
@@ -72,19 +72,9 @@ use std::process::Stdio;
 #[derive(Debug)]
 pub struct PipeReader(File);
 
-/// The writing end of a pipe, returned by [`pipe`](fn.pipe.html).
-#[derive(Debug)]
-pub struct PipeWriter(File);
-
 impl PipeReader {
     pub fn try_clone(&self) -> io::Result<PipeReader> {
         self.0.try_clone().map(PipeReader)
-    }
-}
-
-impl PipeWriter {
-    pub fn try_clone(&self) -> io::Result<PipeWriter> {
-        self.0.try_clone().map(PipeWriter)
     }
 }
 
@@ -98,6 +88,28 @@ impl<'a> io::Read for &'a PipeReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut file_ref = &self.0;
         file_ref.read(buf)
+    }
+}
+
+impl From<PipeReader> for File {
+    fn from(p: PipeReader) -> File {
+        p.0
+    }
+}
+
+impl From<PipeReader> for Stdio {
+    fn from(p: PipeReader) -> Stdio {
+        p.0.into()
+    }
+}
+
+/// The writing end of a pipe, returned by [`pipe`](fn.pipe.html).
+#[derive(Debug)]
+pub struct PipeWriter(File);
+
+impl PipeWriter {
+    pub fn try_clone(&self) -> io::Result<PipeWriter> {
+        self.0.try_clone().map(PipeWriter)
     }
 }
 
@@ -123,6 +135,18 @@ impl<'a> io::Write for &'a PipeWriter {
     }
 }
 
+impl From<PipeWriter> for File {
+    fn from(p: PipeWriter) -> File {
+        p.0
+    }
+}
+
+impl From<PipeWriter> for Stdio {
+    fn from(p: PipeWriter) -> Stdio {
+        p.0.into()
+    }
+}
+
 /// Open a new pipe and return a [`PipeReader`](struct.PipeReader.html)
 /// and [`PipeWriter`](struct.PipeWriter.html) pair.
 ///
@@ -135,44 +159,49 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     sys::pipe()
 }
 
-/// Get a copy of the current process's standard input pipe, as a
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
+/// Get a duplicated copy of the current process's standard input, as a
+/// [`PipeReader`](struct.PipeReader.html).
 ///
-/// This isn't intended for doing IO, rather it's in a form that can be
-/// passed directly to the `std::process::Command` API.
-pub fn parent_stdin() -> io::Result<Stdio> {
-    sys::parent_stdin()
-}
-
-/// Get a copy of the current process's standard output pipe, as a
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
-///
-/// This isn't intended for doing IO, rather it's in a form that can be
-/// passed directly to the `std::process::Command` API.
-pub fn parent_stdout() -> io::Result<Stdio> {
-    sys::parent_stdout()
-}
-
-/// Get a copy of the current process's standard error pipe, as a
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html).
-///
-/// This isn't intended for doing IO, rather it's in a form that can be
-/// passed directly to the `std::process::Command` API.
-pub fn parent_stderr() -> io::Result<Stdio> {
-    sys::parent_stderr()
-}
-
-/// A trait for types that hold file handles, like
-/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html),
-/// [`PipeReader`](struct.PipeReader.html), and
-/// [`PipeWriter`](struct.PipeWriter.html), which provides a conversion to
+/// Reading directly from this pipe isn't recommended, because it's not
+/// synchronized with
+/// [`std::io::stdin`](https://doc.rust-lang.org/std/io/fn.stdin.html). It can
+/// be converted into a
 /// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
+/// via `From`, for use with child processes. It can also be converted into a
+/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
+/// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
+pub fn dup_stdin() -> io::Result<PipeReader> {
+    sys::dup_stdin()
+}
+
+/// Get a duplicated copy of the current process's standard output, as a
+/// [`PipeWriter`](struct.PipeWriter.html).
 ///
-/// The standard library almost supports this conversion, but it requires
-/// platform-specific traits and an `unsafe` call. This is a safe wrapper for
-/// convenience.
-pub trait IntoStdio {
-    fn into_stdio(self) -> Stdio;
+/// Writing directly to this pipe isn't recommended, because it's not
+/// synchronized with
+/// [`std::io::stdout`](https://doc.rust-lang.org/std/io/fn.stdout.html). It
+/// can be converted into a
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
+/// via `From`, for use with child processes. It can also be converted into a
+/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
+/// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
+pub fn dup_stdout() -> io::Result<PipeWriter> {
+    sys::dup_stdout()
+}
+
+/// Get a duplicated copy of the current process's standard error, as a
+/// [`PipeWriter`](struct.PipeWriter.html).
+///
+/// Writing directly to this pipe isn't recommended, because it's not
+/// synchronized with
+/// [`std::io::stderr`](https://doc.rust-lang.org/std/io/fn.stderr.html). It
+/// can be converted into a
+/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
+/// via `From`, for use with child processes. It can also be converted into a
+/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
+/// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
+pub fn dup_stderr() -> io::Result<PipeWriter> {
+    sys::dup_stderr()
 }
 
 #[cfg(not(windows))]
@@ -190,7 +219,6 @@ mod tests {
     use std::process::Command;
     use std::sync::{Once, ONCE_INIT};
     use std::thread;
-    use IntoStdio;
 
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
@@ -282,16 +310,14 @@ mod tests {
         // Create pipes for a child process.
         let (input_reader, mut input_writer) = ::pipe().unwrap();
         let (mut output_reader, output_writer) = ::pipe().unwrap();
-        let child_stdin = input_reader.into_stdio();
-        let child_stdout = output_writer.into_stdio();
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
         // stops us from blocking our own read below. We use our own simple implementation of cat
         // for compatibility with Windows.
         let mut child = Command::new(path_to_exe("cat"))
-            .stdin(child_stdin)
-            .stdout(child_stdout)
+            .stdin(input_reader)
+            .stdout(output_writer)
             .spawn()
             .unwrap();
 
@@ -317,7 +343,6 @@ mod tests {
 
         // Create pipes for a child process.
         let (reader, mut writer) = ::pipe().unwrap();
-        let child_stdin = reader.into_stdio();
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.
@@ -328,7 +353,7 @@ mod tests {
         // because we run it inside `swap`, that write should end up on stderr.
         let output = Command::new(path_to_exe("swap"))
             .arg(path_to_exe("cat"))
-            .stdin(child_stdin)
+            .stdin(reader)
             .output()
             .unwrap();
 
@@ -348,19 +373,19 @@ mod tests {
     fn test_parent_handles_dont_close() {
         // Open and close each parent pipe multiple times. If this closes the
         // original, subsequent opens should fail.
-        let stdin = ::parent_stdin().unwrap();
+        let stdin = ::dup_stdin().unwrap();
         drop(stdin);
-        let stdin = ::parent_stdin().unwrap();
+        let stdin = ::dup_stdin().unwrap();
         drop(stdin);
 
-        let stdout = ::parent_stdout().unwrap();
+        let stdout = ::dup_stdout().unwrap();
         drop(stdout);
-        let stdout = ::parent_stdout().unwrap();
+        let stdout = ::dup_stdout().unwrap();
         drop(stdout);
 
-        let stderr = ::parent_stderr().unwrap();
+        let stderr = ::dup_stderr().unwrap();
         drop(stderr);
-        let stderr = ::parent_stderr().unwrap();
+        let stderr = ::dup_stderr().unwrap();
         drop(stderr);
     }
 
