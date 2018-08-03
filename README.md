@@ -27,7 +27,7 @@ careful to close the write ends first though, or reading will block
 waiting for EOF.
 
 ```rust
-use os_pipe::{pipe, IntoStdio};
+use os_pipe::pipe;
 use std::io::prelude::*;
 use std::process::{Command, Stdio};
 
@@ -47,8 +47,8 @@ child.arg(shell_command);
 // give both copies to the child.
 let (mut reader, writer) = pipe().unwrap();
 let writer_clone = writer.try_clone().unwrap();
-child.stdout(writer.into_stdio());
-child.stderr(writer_clone.into_stdio());
+child.stdout(writer);
+child.stderr(writer_clone);
 
 // Now start the child running.
 let mut handle = child.spawn().unwrap();
