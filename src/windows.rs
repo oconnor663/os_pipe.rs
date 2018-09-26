@@ -13,7 +13,7 @@ use self::winapi::um::{handleapi, namedpipeapi, processenv, winbase};
 use PipeReader;
 use PipeWriter;
 
-pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
+pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let mut read_pipe: HANDLE = ptr::null_mut();
     let mut write_pipe: HANDLE = ptr::null_mut();
 
@@ -40,34 +40,9 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     }
 }
 
-pub fn dup_stdin() -> io::Result<PipeReader> {
-    Ok(PipeReader(dup_std_handle(winbase::STD_INPUT_HANDLE)?))
-}
-
-pub fn dup_stdout() -> io::Result<PipeWriter> {
-    Ok(PipeWriter(dup_std_handle(winbase::STD_OUTPUT_HANDLE)?))
-}
-
-pub fn dup_stderr() -> io::Result<PipeWriter> {
-    Ok(PipeWriter(dup_std_handle(winbase::STD_ERROR_HANDLE)?))
-}
-
-// adapted from src/libstd/sys/windows/stdio.rs
-fn dup_std_handle(which: DWORD) -> io::Result<File> {
-    let handle = unsafe { processenv::GetStdHandle(which) };
-    if handle == handleapi::INVALID_HANDLE_VALUE {
-        return Err(io::Error::last_os_error());
-    }
-    if handle.is_null() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "no stdio handle available for this process",
-        ));
-    }
-    // This handle is *not* a dup. It's just a copy of the global stdin/stdout/stderr handle, and
-    // we need to dup it ourselves. The simplest way to do that is File::try_clone(), but we need
-    // to make sure that the file is never dropped.
-    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_handle(handle as _) });
+pub(crate) fn dup<T: AsRawHandle>(wrapper: T) -> io::Result<File> {
+    let handle = wrapper.as_raw_handle();
+    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_handle(handle) });
     temp_file.try_clone()
 }
 

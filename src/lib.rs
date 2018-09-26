@@ -184,7 +184,7 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
 /// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
 /// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
 pub fn dup_stdin() -> io::Result<PipeReader> {
-    sys::dup_stdin()
+    sys::dup(io::stdin()).map(PipeReader)
 }
 
 /// Get a duplicated copy of the current process's standard output, as a
@@ -199,7 +199,7 @@ pub fn dup_stdin() -> io::Result<PipeReader> {
 /// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
 /// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
 pub fn dup_stdout() -> io::Result<PipeWriter> {
-    sys::dup_stdout()
+    sys::dup(io::stdout()).map(PipeWriter)
 }
 
 /// Get a duplicated copy of the current process's standard error, as a
@@ -214,7 +214,7 @@ pub fn dup_stdout() -> io::Result<PipeWriter> {
 /// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
 /// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
 pub fn dup_stderr() -> io::Result<PipeWriter> {
-    sys::dup_stderr()
+    sys::dup(io::stderr()).map(PipeWriter)
 }
 
 #[cfg(not(windows))]
@@ -362,10 +362,11 @@ mod tests {
         writer.write_all(b"quack").unwrap();
         drop(writer);
 
-        // Use `swap` to run `cat`. `cat will read "quack" from stdin and write it to stdout. But
-        // because we run it inside `swap`, that write should end up on stderr.
+        // Use `swap` to run `cat_both`. `cat_both will read "quack" from stdin
+        // and write it to stdout and stderr with different tags. But because we
+        // run it inside `swap`, the tags in the output should be backwards.
         let output = Command::new(path_to_exe("swap"))
-            .arg(path_to_exe("cat"))
+            .arg(path_to_exe("cat_both"))
             .stdin(reader)
             .output()
             .unwrap();
@@ -378,8 +379,8 @@ mod tests {
         );
 
         // Confirm that we got the right bytes.
-        assert_eq!(b"", &*output.stdout);
-        assert_eq!(b"quack", &*output.stderr);
+        assert_eq!(b"stderr: quack", &*output.stdout);
+        assert_eq!(b"stdout: quack", &*output.stderr);
     }
 
     #[test]

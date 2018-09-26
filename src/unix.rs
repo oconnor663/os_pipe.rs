@@ -8,7 +8,7 @@ use std::os::unix::prelude::*;
 use PipeReader;
 use PipeWriter;
 
-pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
+pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
     // effort to make that atomic on platforms that support it, to avoid the case where another
     // thread forks right after the pipes are created but before O_CLOEXEC is set.
@@ -23,32 +23,18 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     }
 }
 
-pub fn dup_stdin() -> io::Result<PipeReader> {
-    Ok(PipeReader(dup_fd(nix::libc::STDIN_FILENO)?))
-}
-
-pub fn dup_stdout() -> io::Result<PipeWriter> {
-    Ok(PipeWriter(dup_fd(nix::libc::STDOUT_FILENO)?))
-}
-
-pub fn dup_stderr() -> io::Result<PipeWriter> {
-    Ok(PipeWriter(dup_fd(nix::libc::STDERR_FILENO)?))
-}
-
-fn dup_fd(fd: RawFd) -> io::Result<File> {
-    // We wrap the original file descriptor in a File, so that we can use
-    // try_clone. Dropping the File would close the original descriptor,
-    // though, so we wrap it in ManuallyDrop to prevent that.
-    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
-    temp_file.try_clone()
-}
-
 fn nix_err_to_io_err(err: nix::Error) -> io::Error {
     if let nix::Error::Sys(err_no) = err {
         io::Error::from(err_no)
     } else {
         panic!("unexpected nix error type: {:?}", err)
     }
+}
+
+pub(crate) fn dup<T: AsRawFd>(wrapper: T) -> io::Result<File> {
+    let fd = wrapper.as_raw_fd();
+    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
+    temp_file.try_clone()
 }
 
 impl IntoRawFd for PipeReader {
