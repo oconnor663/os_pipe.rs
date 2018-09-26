@@ -17,6 +17,14 @@
 //!
 //! # Changes
 //!
+//! - 0.8.0
+//!   - Remove the `From<...> for File` impls. While treating a pipe or a tty as
+//!     a file works pretty smoothly on Unix, it's questionable on Windows. For
+//!     example, `File::metadata` may return an error, or it might succeed but
+//!     then incorrectly return `true` from `is_file`. Now that the standard
+//!     library's `Stdin`/`Stdout`/`Stderr` types all implement
+//!     `AsRawFd`/`AsRawHandle`, callers who know what they're doing can use
+//!     those interfaces, rather than relying on `os_pipe`.
 //! - 0.7.0
 //!   - Implement `From<PipeReader>` and `From<PipeWriter>` for `Stdio` and
 //!     `File`. The latter is useful for APIs that require a `File`, like
@@ -82,6 +90,9 @@ use std::io;
 use std::process::Stdio;
 
 /// The reading end of a pipe, returned by [`pipe`](fn.pipe.html).
+///
+/// `PipeReader` implements `Into<Stdio>`, so you can pass it as an argument to
+/// `Command::stdin` to spawn a child process that reads from the pipe.
 #[derive(Debug)]
 pub struct PipeReader(File);
 
@@ -104,12 +115,6 @@ impl<'a> io::Read for &'a PipeReader {
     }
 }
 
-impl From<PipeReader> for File {
-    fn from(p: PipeReader) -> File {
-        p.0
-    }
-}
-
 impl From<PipeReader> for Stdio {
     fn from(p: PipeReader) -> Stdio {
         p.0.into()
@@ -117,6 +122,10 @@ impl From<PipeReader> for Stdio {
 }
 
 /// The writing end of a pipe, returned by [`pipe`](fn.pipe.html).
+///
+/// `PipeWriter` implements `Into<Stdio>`, so you can pass it as an argument to
+/// `Command::stdout` or `Command::stderr` to spawn a child process that writes
+/// to the pipe.
 #[derive(Debug)]
 pub struct PipeWriter(File);
 
@@ -148,41 +157,40 @@ impl<'a> io::Write for &'a PipeWriter {
     }
 }
 
-impl From<PipeWriter> for File {
-    fn from(p: PipeWriter) -> File {
-        p.0
-    }
-}
-
 impl From<PipeWriter> for Stdio {
     fn from(p: PipeWriter) -> Stdio {
         p.0.into()
     }
 }
 
-/// Open a new pipe and return a [`PipeReader`](struct.PipeReader.html)
-/// and [`PipeWriter`](struct.PipeWriter.html) pair.
+/// Open a new pipe and return a [`PipeReader`] and [`PipeWriter`] pair.
 ///
 /// This corresponds to the `pipe2` library call on Posix and the
 /// `CreatePipe` library call on Windows (though these implementation
 /// details might change). Pipes are non-inheritable, so new child
 /// processes won't receive a copy of them unless they're explicitly
 /// passed as stdin/stdout/stderr.
+///
+/// [`PipeReader`]: struct.PipeReader.html
+/// [`PipeWriter`]: struct.PipeWriter.html
 pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     sys::pipe()
 }
 
 /// Get a duplicated copy of the current process's standard input, as a
-/// [`PipeReader`](struct.PipeReader.html).
+/// [`PipeReader`].
 ///
 /// Reading directly from this pipe isn't recommended, because it's not
-/// synchronized with
-/// [`std::io::stdin`](https://doc.rust-lang.org/std/io/fn.stdin.html). It can
-/// be converted into a
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
-/// via `From`, for use with child processes. It can also be converted into a
-/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
-/// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
+/// synchronized with [`std::io::stdin`]. [`PipeReader`] implements
+/// [`Into<Stdio>`], so it can be passed directly to [`Command::stdin`]. This is
+/// equivalent to [`Stdio::inherit`], though, so it's usually not necessary
+/// unless you need a collection of different pipes.
+///
+/// [`std::io::stdin`]: https://doc.rust-lang.org/std/io/fn.stdin.html
+/// [`PipeReader`]: struct.PipeReader.html
+/// [`Into<Stdio>`]: https://doc.rust-lang.org/std/process/struct.Stdio.html
+/// [`Command::stdin`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stdin
+/// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stdin() -> io::Result<PipeReader> {
     sys::dup(io::stdin()).map(PipeReader)
 }
@@ -191,13 +199,17 @@ pub fn dup_stdin() -> io::Result<PipeReader> {
 /// [`PipeWriter`](struct.PipeWriter.html).
 ///
 /// Writing directly to this pipe isn't recommended, because it's not
-/// synchronized with
-/// [`std::io::stdout`](https://doc.rust-lang.org/std/io/fn.stdout.html). It
-/// can be converted into a
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
-/// via `From`, for use with child processes. It can also be converted into a
-/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
-/// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
+/// synchronized with [`std::io::stdout`]. [`PipeWriter`] implements
+/// [`Into<Stdio>`], so it can be passed directly to [`Command::stdout`] or
+/// [`Command::stderr`]. This can be useful if you want the child's stderr to go
+/// to the parent's stdout.
+///
+/// [`std::io::stdout`]: https://doc.rust-lang.org/std/io/fn.stdout.html
+/// [`PipeWriter`]: struct.PipeWriter.html
+/// [`Into<Stdio>`]: https://doc.rust-lang.org/std/process/struct.Stdio.html
+/// [`Command::stdout`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stdout
+/// [`Command::stderr`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stderr
+/// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stdout() -> io::Result<PipeWriter> {
     sys::dup(io::stdout()).map(PipeWriter)
 }
@@ -206,13 +218,17 @@ pub fn dup_stdout() -> io::Result<PipeWriter> {
 /// [`PipeWriter`](struct.PipeWriter.html).
 ///
 /// Writing directly to this pipe isn't recommended, because it's not
-/// synchronized with
-/// [`std::io::stderr`](https://doc.rust-lang.org/std/io/fn.stderr.html). It
-/// can be converted into a
-/// [`std::process::Stdio`](https://doc.rust-lang.org/std/process/struct.Stdio.html)
-/// via `From`, for use with child processes. It can also be converted into a
-/// [`std::fs::File`](https://doc.rust-lang.org/std/fs/struct.File.html) via
-/// `From`, for use with crates like [`memmap`](https://docs.rs/memmap).
+/// synchronized with [`std::io::stderr`]. [`PipeWriter`] implements
+/// [`Into<Stdio>`], so it can be passed directly to [`Command::stdout`] or
+/// [`Command::stderr`]. This can be useful if you want the child's stdout to go
+/// to the parent's stderr.
+///
+/// [`std::io::stderr`]: https://doc.rust-lang.org/std/io/fn.stderr.html
+/// [`PipeWriter`]: struct.PipeWriter.html
+/// [`Into<Stdio>`]: https://doc.rust-lang.org/std/process/struct.Stdio.html
+/// [`Command::stdout`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stdout
+/// [`Command::stderr`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stderr
+/// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stderr() -> io::Result<PipeWriter> {
     sys::dup(io::stderr()).map(PipeWriter)
 }

@@ -19,6 +19,14 @@ below in [one line of code](https://docs.rs/duct/#example).
 
 ## Changes
 
+- 0.8.0
+  - Remove the `From<...> for File` impls. While treating a pipe or a tty as
+    a file works pretty smoothly on Unix, it's questionable on Windows. For
+    example, `File::metadata` may return an error, or it might succeed but
+    then incorrectly return `true` from `is_file`. Now that the standard
+    library's `Stdin`/`Stdout`/`Stderr` types all implement
+    `AsRawFd`/`AsRawHandle`, callers who know what they're doing can use
+    those interfaces, rather than relying on `os_pipe`.
 - 0.7.0
   - Implement `From<PipeReader>` and `From<PipeWriter>` for `Stdio` and
     `File`. The latter is useful for APIs that require a `File`, like
