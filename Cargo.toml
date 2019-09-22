@@ -4,6 +4,7 @@ version = "0.8.2"
 authors = ["Jack O'Connor"]
 description = "a cross-platform library for opening OS pipes"
 repository = "https://github.com/oconnor663/os_pipe.rs"
+readme = "README.md"
 documentation = "https://docs.rs/os_pipe"
 license = "MIT"
 
