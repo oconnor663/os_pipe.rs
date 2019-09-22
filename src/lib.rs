@@ -13,7 +13,7 @@
 //! higher-level [`duct`](https://github.com/oconnor663/duct.rs)
 //! library, which handles most of the same use cases with much less
 //! code and no risk of deadlocks. `duct` can run the entire example
-//! below in [one line of code](https://docs.rs/duct/#example).
+//! below in one line of code.
 //!
 //! # Changes
 //!
