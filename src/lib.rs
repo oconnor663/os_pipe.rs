@@ -340,23 +340,26 @@ mod tests {
         let (input_reader, mut input_writer) = crate::pipe().unwrap();
         let (mut output_reader, output_writer) = crate::pipe().unwrap();
 
-        // Spawn the child. Note that this temporary Command object takes ownership of our copies
-        // of the child's stdin and stdout, and then closes them immediately when it drops. That
-        // stops us from blocking our own read below. We use our own simple implementation of cat
-        // for compatibility with Windows.
+        // Spawn the child. Note that this temporary Command object takes
+        // ownership of our copies of the child's stdin and stdout, and then
+        // closes them immediately when it drops. That stops us from blocking
+        // our own read below. We use our own simple implementation of cat for
+        // compatibility with Windows.
         let mut child = Command::new(path_to_exe("cat"))
             .stdin(input_reader)
             .stdout(output_writer)
             .spawn()
             .unwrap();
 
-        // Write to the child's stdin. This is a small write, so it shouldn't block.
+        // Write to the child's stdin. This is a small write, so it shouldn't
+        // block.
         input_writer.write_all(b"hello").unwrap();
         drop(input_writer);
 
-        // Read from the child's stdout. If this child has accidentally inherited the write end of
-        // its own stdin, then it will never exit, and this read will block forever. That's the
-        // what this test is all about.
+        // Read from the child's stdout. If this child has accidentally
+        // inherited the write end of its own stdin, then it will never exit,
+        // and this read will block forever. That's what this test is all
+        // about.
         let mut output = Vec::new();
         output_reader.read_to_end(&mut output).unwrap();
         child.wait().unwrap();
