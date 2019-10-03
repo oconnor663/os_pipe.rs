@@ -19,6 +19,11 @@ below in [one line of code](https://docs.rs/duct/#example).
 
 ## Changes
 
+- 0.9.0
+  - Set `edition = "2018"` in Cargo.toml.
+  - Minimum supported compiler version is now 1.31.0.
+  - Removed dependency on the `nix` crate. Now only depends on `libc` on
+    Unix.
 - 0.8.0
   - Remove the `From<...> for File` impls. While treating a pipe or a tty as
     a file works pretty smoothly on Unix, it's questionable on Windows. For
@@ -27,16 +32,6 @@ below in [one line of code](https://docs.rs/duct/#example).
     library's `Stdin`/`Stdout`/`Stderr` types all implement
     `AsRawFd`/`AsRawHandle`, callers who know what they're doing can use
     those interfaces, rather than relying on `os_pipe`.
-- 0.7.0
-  - Implement `From<PipeReader>` and `From<PipeWriter>` for `Stdio` and
-    `File`. The latter is useful for APIs that require a `File`, like
-    `memmap`, together with `dup_stdin` etc. below.
-  - Remove the `IntoStdio` trait. Since Rust 1.20, `PipeReader` and
-    `PipeWriter` (as well as the standard `File`) can be passed directly to
-    `std::process::Command`, without any extra conversion.
-  - Replace `parent_stdin`/`parent_stdout`/`parent_stderr` with
-    `dup_stdin`/`dup_stdout`/`dup_stderr`, which return
-    `PipeReader` or `PipeWriter` instead of `Stdio.`
 
 ## Example
 
