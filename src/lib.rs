@@ -246,14 +246,14 @@ mod tests {
     use std::io::prelude::*;
     use std::path::{Path, PathBuf};
     use std::process::Command;
-    use std::sync::{Once, ONCE_INIT};
+    use std::sync::Once;
     use std::thread;
 
     fn path_to_exe(name: &str) -> PathBuf {
         // This project defines some associated binaries for testing, and we shell out to them in
         // these tests. `cargo test` doesn't automatically build associated binaries, so this
         // function takes care of building them explicitly, with the right debug/release flavor.
-        static CARGO_BUILD_ONCE: Once = ONCE_INIT;
+        static CARGO_BUILD_ONCE: Once = Once::new();
         CARGO_BUILD_ONCE.call_once(|| {
             let mut build_command = Command::new("cargo");
             build_command.args(&["build", "--quiet"]);
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_pipe_some_data() {
-        let (mut reader, mut writer) = ::pipe().unwrap();
+        let (mut reader, mut writer) = crate::pipe().unwrap();
         // A small write won't fill the pipe buffer, so it won't block this thread.
         writer.write_all(b"some stuff").unwrap();
         drop(writer);
@@ -292,7 +292,7 @@ mod tests {
     fn test_pipe_some_data_with_refs() {
         // As with `File`, there's a second set of impls for shared
         // refs. Test those.
-        let (reader, writer) = ::pipe().unwrap();
+        let (reader, writer) = crate::pipe().unwrap();
         let mut reader_ref = &reader;
         {
             let mut writer_ref = &writer;
@@ -307,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_pipe_no_data() {
-        let (mut reader, writer) = ::pipe().unwrap();
+        let (mut reader, writer) = crate::pipe().unwrap();
         drop(writer);
         let mut out = String::new();
         reader.read_to_string(&mut out).unwrap();
@@ -318,7 +318,7 @@ mod tests {
     fn test_pipe_a_megabyte_of_data_from_another_thread() {
         let data = vec![0xff; 1_000_000];
         let data_copy = data.clone();
-        let (mut reader, mut writer) = ::pipe().unwrap();
+        let (mut reader, mut writer) = crate::pipe().unwrap();
         let joiner = thread::spawn(move || {
             writer.write_all(&data_copy).unwrap();
             // This drop happens automatically, so writing it out here is mostly
@@ -337,8 +337,8 @@ mod tests {
     #[test]
     fn test_pipes_are_not_inheritable() {
         // Create pipes for a child process.
-        let (input_reader, mut input_writer) = ::pipe().unwrap();
-        let (mut output_reader, output_writer) = ::pipe().unwrap();
+        let (input_reader, mut input_writer) = crate::pipe().unwrap();
+        let (mut output_reader, output_writer) = crate::pipe().unwrap();
 
         // Spawn the child. Note that this temporary Command object takes ownership of our copies
         // of the child's stdin and stdout, and then closes them immediately when it drops. That
@@ -371,7 +371,7 @@ mod tests {
         // parent_stderr() to swap the outputs for another child that it spawns.
 
         // Create pipes for a child process.
-        let (reader, mut writer) = ::pipe().unwrap();
+        let (reader, mut writer) = crate::pipe().unwrap();
 
         // Write input. This shouldn't block because it's small. Then close the write end, or else
         // the child will hang.
@@ -403,25 +403,25 @@ mod tests {
     fn test_parent_handles_dont_close() {
         // Open and close each parent pipe multiple times. If this closes the
         // original, subsequent opens should fail.
-        let stdin = ::dup_stdin().unwrap();
+        let stdin = crate::dup_stdin().unwrap();
         drop(stdin);
-        let stdin = ::dup_stdin().unwrap();
+        let stdin = crate::dup_stdin().unwrap();
         drop(stdin);
 
-        let stdout = ::dup_stdout().unwrap();
+        let stdout = crate::dup_stdout().unwrap();
         drop(stdout);
-        let stdout = ::dup_stdout().unwrap();
+        let stdout = crate::dup_stdout().unwrap();
         drop(stdout);
 
-        let stderr = ::dup_stderr().unwrap();
+        let stderr = crate::dup_stderr().unwrap();
         drop(stderr);
-        let stderr = ::dup_stderr().unwrap();
+        let stderr = crate::dup_stderr().unwrap();
         drop(stderr);
     }
 
     #[test]
     fn test_try_clone() {
-        let (reader, writer) = ::pipe().unwrap();
+        let (reader, writer) = crate::pipe().unwrap();
         let mut reader_clone = reader.try_clone().unwrap();
         let mut writer_clone = writer.try_clone().unwrap();
         // A small write won't fill the pipe buffer, so it won't block this thread.
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_debug() {
-        let (reader, writer) = ::pipe().unwrap();
+        let (reader, writer) = crate::pipe().unwrap();
         format!("{:?} {:?}", reader, writer);
     }
 }

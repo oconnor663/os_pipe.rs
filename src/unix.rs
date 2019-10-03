@@ -5,8 +5,8 @@ use std::io;
 use std::mem::ManuallyDrop;
 use std::os::unix::prelude::*;
 
-use PipeReader;
-use PipeWriter;
+use crate::PipeReader;
+use crate::PipeWriter;
 
 pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     // O_CLOEXEC prevents children from inheriting these pipes. Nix's pipe2() will make a best
