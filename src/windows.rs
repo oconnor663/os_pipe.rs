@@ -4,9 +4,9 @@ use std::mem::ManuallyDrop;
 use std::os::windows::prelude::*;
 use std::ptr;
 
-use self::winapi::shared::minwindef::DWORD;
-use self::winapi::shared::ntdef::{HANDLE, PHANDLE};
-use self::winapi::um::{handleapi, namedpipeapi, processenv, winbase};
+use winapi::shared::minwindef::DWORD;
+use winapi::shared::ntdef::{HANDLE, PHANDLE};
+use winapi::um::{handleapi, namedpipeapi, processenv, winbase};
 
 use PipeReader;
 use PipeWriter;
@@ -16,8 +16,8 @@ pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let mut write_pipe: HANDLE = ptr::null_mut();
 
     let ret = unsafe {
-        // TODO: These pipes do not support IOCP. We might want to emulate anonymous pipes with
-        // CreateNamedPipe, as Rust's stdlib does.
+        // NOTE: These pipes do not support IOCP. We might want to emulate
+        // anonymous pipes with CreateNamedPipe, as Rust's stdlib does.
         namedpipeapi::CreatePipe(
             &mut read_pipe as PHANDLE,
             &mut write_pipe as PHANDLE,
