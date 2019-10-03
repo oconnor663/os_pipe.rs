@@ -1,5 +1,3 @@
-extern crate nix;
-
 use std::fs::File;
 use std::io;
 use std::mem::ManuallyDrop;
