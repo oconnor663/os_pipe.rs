@@ -6,10 +6,10 @@ use std::ptr;
 
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::ntdef::{HANDLE, PHANDLE};
-use winapi::um::{handleapi, namedpipeapi, processenv, winbase};
+use winapi::um::namedpipeapi;
 
-use PipeReader;
-use PipeWriter;
+use crate::PipeReader;
+use crate::PipeWriter;
 
 pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let mut read_pipe: HANDLE = ptr::null_mut();
