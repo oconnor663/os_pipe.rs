@@ -57,7 +57,7 @@ pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     }
 }
 
-pub(crate) fn dup<T: AsRawFd>(wrapper: T) -> io::Result<File> {
+pub(crate) fn dup<F: AsRawFd>(wrapper: &F) -> io::Result<File> {
     let fd = wrapper.as_raw_fd();
     let temp_file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
     temp_file.try_clone()

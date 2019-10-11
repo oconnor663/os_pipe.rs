@@ -98,7 +98,9 @@ pub struct PipeReader(File);
 
 impl PipeReader {
     pub fn try_clone(&self) -> io::Result<PipeReader> {
-        self.0.try_clone().map(PipeReader)
+        // Do *not* use File::try_clone here. It's buggy on windows. See
+        // comments on windows.rs::dup().
+        sys::dup(&self.0).map(PipeReader)
     }
 }
 
@@ -131,7 +133,9 @@ pub struct PipeWriter(File);
 
 impl PipeWriter {
     pub fn try_clone(&self) -> io::Result<PipeWriter> {
-        self.0.try_clone().map(PipeWriter)
+        // Do *not* use File::try_clone here. It's buggy on windows. See
+        // comments on windows.rs::dup().
+        sys::dup(&self.0).map(PipeWriter)
     }
 }
 
@@ -192,7 +196,7 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
 /// [`Command::stdin`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stdin
 /// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stdin() -> io::Result<PipeReader> {
-    sys::dup(io::stdin()).map(PipeReader)
+    sys::dup(&io::stdin()).map(PipeReader)
 }
 
 /// Get a duplicated copy of the current process's standard output, as a
@@ -211,7 +215,7 @@ pub fn dup_stdin() -> io::Result<PipeReader> {
 /// [`Command::stderr`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stderr
 /// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stdout() -> io::Result<PipeWriter> {
-    sys::dup(io::stdout()).map(PipeWriter)
+    sys::dup(&io::stdout()).map(PipeWriter)
 }
 
 /// Get a duplicated copy of the current process's standard error, as a
@@ -230,7 +234,7 @@ pub fn dup_stdout() -> io::Result<PipeWriter> {
 /// [`Command::stderr`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stderr
 /// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stderr() -> io::Result<PipeWriter> {
-    sys::dup(io::stderr()).map(PipeWriter)
+    sys::dup(&io::stderr()).map(PipeWriter)
 }
 
 #[cfg(not(windows))]
@@ -340,6 +344,13 @@ mod tests {
         let (input_reader, mut input_writer) = crate::pipe().unwrap();
         let (mut output_reader, output_writer) = crate::pipe().unwrap();
 
+        // Create a bunch of duplicated copies, which we'll close later. This
+        // tests that duplication preserves non-inheritability.
+        let ir_dup = input_reader.try_clone().unwrap();
+        let iw_dup = input_writer.try_clone().unwrap();
+        let or_dup = output_reader.try_clone().unwrap();
+        let ow_dup = output_writer.try_clone().unwrap();
+
         // Spawn the child. Note that this temporary Command object takes
         // ownership of our copies of the child's stdin and stdout, and then
         // closes them immediately when it drops. That stops us from blocking
@@ -350,6 +361,12 @@ mod tests {
             .stdout(output_writer)
             .spawn()
             .unwrap();
+
+        // Drop all the dups now that the child is spawned.
+        drop(ir_dup);
+        drop(iw_dup);
+        drop(or_dup);
+        drop(ow_dup);
 
         // Write to the child's stdin. This is a small write, so it shouldn't
         // block.
