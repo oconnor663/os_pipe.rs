@@ -17,25 +17,6 @@ library, which handles most of the same use cases with much less
 code and no risk of deadlocks. `duct` can run the entire example
 below in one line of code.
 
-## Changes
-
-- 0.9.1
-  - Fix a bug on Windows where `try_clone` was making pipes inheritable,
-    which led to deadlocks.
-- 0.9.0
-  - Set `edition = "2018"` in Cargo.toml.
-  - Minimum supported compiler version is now 1.31.0.
-  - Removed dependency on the `nix` crate. Now only depends on `libc` on
-    Unix.
-- 0.8.0
-  - Remove the `From<...> for File` impls. While treating a pipe or a tty as
-    a file works pretty smoothly on Unix, it's questionable on Windows. For
-    example, `File::metadata` may return an error, or it might succeed but
-    then incorrectly return `true` from `is_file`. Now that the standard
-    library's `Stdin`/`Stdout`/`Stderr` types all implement
-    `AsRawFd`/`AsRawHandle`, callers who know what they're doing can use
-    those interfaces, rather than relying on `os_pipe`.
-
 ## Example
 
 Join the stdout and stderr of a child process into a single stream,
