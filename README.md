@@ -11,11 +11,13 @@ helpers for passing pipes to the `std::process::Command` API.
 - [Crate](https://crates.io/crates/os_pipe)
 - [Repo](https://github.com/oconnor663/os_pipe.rs)
 
-Usage note: The main purpose of `os_pipe` is to support the
-higher-level [`duct`](https://github.com/oconnor663/duct.rs)
-library, which handles most of the same use cases with much less
-code and no risk of deadlocks. `duct` can run the entire example
-below in one line of code.
+Usage note: The main purpose of `os_pipe` is to support the higher-level
+[`duct`](https://github.com/oconnor663/duct.rs) library, which handles most
+of the same use cases with much less code and no risk of deadlocks. `duct`
+can run the entire example below in one line of code.
+[`std::process::Command`](https://doc.rust-lang.org/std/process/struct.Command.html)
+also has some built-in piping features. Most programs should prefer one of
+those two options over using `os_pipe` directly.
 
 ## Example
 
