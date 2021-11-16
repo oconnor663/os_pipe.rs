@@ -1,9 +1,11 @@
-//! A cross-platform library for opening OS pipes, like those from the Unix
-//! [`pipe`](https://man7.org/linux/man-pages/man2/pipe.2.html) system call. The Rust standard
-//! library provides
-//! [`Stdio::piped`](https://doc.rust-lang.org/std/process/struct.Stdio.html#method.piped) for
-//! simple use cases involving child processes, but it doesn't support creating pipes directly.
-//! This crate provides the [`pipe`] function to fill that gap.
+//! A cross-platform library for opening OS pipes, like those from
+//! [`pipe`](https://man7.org/linux/man-pages/man2/pipe.2.html) on Linux
+//! or
+//! [`CreatePipe`](https://docs.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-createpipe)
+//! on Windows. The Rust standard library provides
+//! [`Stdio::piped`](https://doc.rust-lang.org/std/process/struct.Stdio.html#method.piped)
+//! for simple use cases involving child processes, but it doesn't
+//! support creating pipes directly. This crate fills that gap.
 //!
 //! - [Docs](https://docs.rs/os_pipe)
 //! - [Crate](https://crates.io/crates/os_pipe)
@@ -11,30 +13,28 @@
 //!
 //! # Common deadlocks related to pipes
 //!
-//! When you work with pipes, you almost always end up debugging a
-//! deadlock at some point. These can be very confusing if you don't
-//! know why they happen. There are two crucial details you need to
-//! know:
+//! When you work with pipes, you often end up debugging a deadlock at
+//! some point. These can be confusing if you don't know why they
+//! happen. Here are two things you need to know:
 //!
-//! 1. When a program reads from a pipe, it will block waiting for input
-//!    as long as there's at least one writer that's still open. That
-//!    means that if you **forget to close one of your writers**, your
-//!    readers will block forever.
-//! 2. Pipes use an internal buffer with a fixed size. When you do a few
-//!    small writes, your bytes will get copied into that buffer.
-//!    However, if you write a lot (sometimes >64 KiB), and there aren't
-//!    any readers consuming those bytes and clearing space in the pipe
-//!    buffer, **eventually the pipe buffer will fill up**,
-//!    and your writes will block waiting for space.
+//! 1. Pipe reads will block waiting for input as long as there's at
+//!    least one writer still open. **If you forget to close a writer,
+//!    reads will block forever.** This includes writers that you give
+//!    to child processes.
+//! 2. Pipes have an internal buffer of some fixed size. On Linux for
+//!    example, pipe buffers are 64 KiB by default. When the buffer is
+//!    full, writes will block waiting for space. **If the buffer is
+//!    full and there aren't any readers, writes will block forever.**
 //!
-//! Deadlocks caused by a forgotten writer usually show up immediately
-//! and reliably. That makes them relatively easy to fix, once you know
-//! what to look for. However, deadlocks caused by full pipe buffers are
-//! more complicated. These might only show up for larger inputs, and
-//! they might be timing-dependent or platform-dependent. If you find
-//! that writing to a pipe causes "weird" deadlocks only some of the
-//! time, consider whether the pipe buffer might be filling up. For more
-//! on this, see the [Gotchas
+//! Deadlocks caused by a forgotten writer usually show up immediately,
+//! which makes them relatively easy to fix once you know what to look
+//! for. (See "Avoid a deadlock!" in the example code below.) However,
+//! deadlocks caused by full pipe buffers are trickier. These might only
+//! show up for larger inputs, and they might be timing-dependent or
+//! platform-dependent. If you find that writing to a pipe deadlocks
+//! sometimes, think about who's supposed to be reading from that pipe,
+//! and whether that thread or process might be blocked on something
+//! else. For more on this, see the [Gotchas
 //! Doc](https://github.com/oconnor663/duct.py/blob/master/gotchas.md#using-io-threads-to-avoid-blocking-children)
 //! from the [`duct`](https://github.com/oconnor663/duct.rs) crate. (And
 //! consider whether [`duct`](https://github.com/oconnor663/duct.rs)
@@ -49,6 +49,7 @@
 //! use std::io::prelude::*;
 //!
 //! let (mut reader, mut writer) = os_pipe::pipe()?;
+//! // XXX: If this write blocks, we'll never get to the read.
 //! writer.write_all(b"x")?;
 //! let mut output = [0];
 //! reader.read_exact(&mut output)?;
@@ -59,16 +60,19 @@
 //!
 //! This is a minimal working example, but as discussed in the section
 //! above, reading and writing on the same thread like this is
-//! deadlock-prone. If we tried to write ~100 KB instead of just one
-//! byte, this example would certainly deadlock.
+//! deadlock-prone. If we wrote 100 KB instead of just one byte, this
+//! example would block on `write_all`, it would never make it to
+//! `read_exact`, and that would be a deadlock. Doing the read and write
+//! from different threads or different processes would fix the
+//! deadlock.
 //!
 //! For a more complex example, here we join the stdout and stderr of a
 //! child process into a single pipe. To do that we open a pipe, clone
 //! its writer, and set that pair of writers as the child's stdout and
-//! stderr. This works because [`PipeWriter`] implements `Into<Stdio>`.
-//! Then we can read interleaved output from the pipe reader. This
-//! example is deadlock-free, but note the comment about closing the
-//! writers.
+//! stderr. (This is possible because `PipeWriter` implements
+//! `Into<Stdio>`.) Then we can read interleaved output from the pipe
+//! reader. This example is deadlock-free, but note the comment about
+//! closing the writers.
 //!
 //! ```rust
 //! # use std::io::prelude::*;
@@ -95,7 +99,7 @@
 //! let mut handle = command.spawn()?;
 //!
 //! // Avoid a deadlock! This parent process is still holding open pipe
-//! // writers (inside the Command object), and we have to close those
+//! // writers inside the Command object, and we have to close those
 //! // before we read. Here we do this by dropping the Command object.
 //! drop(command);
 //!
@@ -110,7 +114,8 @@
 //!
 //! Note that the [`duct`](https://github.com/oconnor663/duct.rs) crate
 //! can reproduce the example above in a single line of code, with no
-//! risk of deadlocks or of leaking zombie children.
+//! risk of deadlocks and no risk of leaking [zombie
+//! children](https://en.wikipedia.org/wiki/Zombie_process).
 
 use std::fs::File;
 use std::io;
