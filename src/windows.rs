@@ -49,6 +49,9 @@ pub(crate) fn dup<F: AsRawHandle>(wrapper: &F) -> io::Result<File> {
     // deadlocks when the handle in question is a stdout pipe. To get that
     // right, we explicitly make the necessary system calls here, just like
     // libstd apart from that one flag.
+    // TODO: The fix for this issue shipped in Rust 1.40 (December 2019). When
+    // we bump the MSRV past that point, we can go ahead and delete this
+    // workaround. Until then, no rush.
     let source_handle = wrapper.as_raw_handle() as HANDLE;
     let desired_access = 0; // Ignored because of DUPLICATE_SAME_ACCESS.
     let inherit_handle = false as BOOL; // <-- Libstd sets this to true!
