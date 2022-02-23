@@ -11,7 +11,7 @@ use std::os::unix::prelude::*;
 // we can do is call pipe() followed by fcntl(), and hope that no other threads
 // fork() in between. The following code is copied from the nix crate, where it
 // works but is deprecated.
-#[cfg(not(any(target_os = "ios", target_os = "macos")))]
+#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "haiku")))]
 fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
     let mut fds: [c_int; 2] = [0; 2];
     let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
@@ -21,7 +21,7 @@ fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
     Ok((fds[0], fds[1]))
 }
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "haiku"))]
 fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
     let mut fds: [c_int; 2] = [0; 2];
     let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
