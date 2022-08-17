@@ -29,3 +29,5 @@ jobs:
         profile: minimal
         override: true
     - run: cargo test
+    # notgull: check io_safety feature with CI
+    - run: cargo check --features io_safety
