@@ -111,3 +111,45 @@ impl FromRawHandle for PipeWriter {
         PipeWriter(File::from_raw_handle(handle))
     }
 }
+
+#[cfg(feature = "io_safety")]
+impl From<PipeReader> for OwnedHandle {
+    fn from(reader: PipeReader) -> Self {
+        reader.0.into() 
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl AsHandle for PipeReader {
+    fn as_handle(&self) -> BorrowedHandle<'_> {
+        self.0.as_handle()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl From<OwnedHandle> for PipeReader {
+    fn from(handle: OwnedHandle) -> Self {
+        PipeReader(handle.into())
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl From<PipeWriter> for OwnedHandle {
+    fn from(writer: PipeWriter) -> Self {
+        writer.0.into()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl AsHandle for PipeWriter {
+    fn as_handle(&self) -> BorrowedHandle<'_> {
+        self.0.as_handle()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl From<OwnedHandle> for PipeWriter {
+    fn from(handle: OwnedHandle) -> Self {
+        PipeWriter(handle.into())
+    }
+}

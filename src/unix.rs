@@ -90,3 +90,45 @@ impl FromRawFd for PipeWriter {
         PipeWriter(File::from_raw_fd(fd))
     }
 }
+
+#[cfg(feature = "io_safety")]
+impl From<PipeReader> for OwnedFd {
+    fn from(pr: PipeReader) -> Self {
+         pr.0.into()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl AsFd for PipeReader {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.0.as_fd()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl From<OwnedFd> for PipeReader {
+    fn from(fd: OwnedFd) -> Self {
+        PipeReader(fd.into())
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl From<PipeWriter> for OwnedFd {
+    fn from(pw: PipeWriter) -> Self {
+        pw.0.into()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl AsFd for PipeWriter {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.0.as_fd()
+    }
+}
+
+#[cfg(feature = "io_safety")]
+impl From<OwnedFd> for PipeWriter {
+    fn from(fd: OwnedFd) -> Self {
+        PipeWriter(fd.into())
+    }
+}
