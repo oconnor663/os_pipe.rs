@@ -115,7 +115,7 @@ impl FromRawHandle for PipeWriter {
 #[cfg(feature = "io_safety")]
 impl From<PipeReader> for OwnedHandle {
     fn from(reader: PipeReader) -> Self {
-        reader.0.into() 
+        reader.0.into()
     }
 }
 

@@ -94,7 +94,7 @@ impl FromRawFd for PipeWriter {
 #[cfg(feature = "io_safety")]
 impl From<PipeReader> for OwnedFd {
     fn from(pr: PipeReader) -> Self {
-         pr.0.into()
+        pr.0.into()
     }
 }
 
