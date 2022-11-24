@@ -4,26 +4,20 @@ use std::fs::File;
 use std::io;
 use std::os::windows::prelude::*;
 use std::ptr;
-use winapi::shared::minwindef::BOOL;
-use winapi::shared::ntdef::{HANDLE, PHANDLE};
-use winapi::um::handleapi::DuplicateHandle;
-use winapi::um::namedpipeapi;
-use winapi::um::processthreadsapi::GetCurrentProcess;
-use winapi::um::winnt::DUPLICATE_SAME_ACCESS;
+use windows_sys::Win32::Foundation::{
+    DuplicateHandle, BOOL, DUPLICATE_SAME_ACCESS, HANDLE, INVALID_HANDLE_VALUE,
+};
+use windows_sys::Win32::System::Pipes::CreatePipe;
+use windows_sys::Win32::System::Threading::GetCurrentProcess;
 
 pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
-    let mut read_pipe: HANDLE = ptr::null_mut();
-    let mut write_pipe: HANDLE = ptr::null_mut();
+    let mut read_pipe = INVALID_HANDLE_VALUE;
+    let mut write_pipe = INVALID_HANDLE_VALUE;
 
     let ret = unsafe {
         // NOTE: These pipes do not support IOCP. We might want to emulate
         // anonymous pipes with CreateNamedPipe, as Rust's stdlib does.
-        namedpipeapi::CreatePipe(
-            &mut read_pipe as PHANDLE,
-            &mut write_pipe as PHANDLE,
-            ptr::null_mut(),
-            0,
-        )
+        CreatePipe(&mut read_pipe, &mut write_pipe, ptr::null_mut(), 0)
     };
 
     if ret == 0 {
