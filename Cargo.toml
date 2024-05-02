@@ -9,9 +9,10 @@ documentation = "https://docs.rs/os_pipe"
 license = "MIT"
 keywords = ["pipe", "pipe2", "createpipe", "dup"]
 edition = "2018"
+rust-version = "1.63"
 
 [target.'cfg(not(windows))'.dependencies]
-libc = "0.2.62"
+rustix = { version = "0.38.0", default-features = false, features = ["pipe", "std"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52.0", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security", "Win32_System_Threading"] }

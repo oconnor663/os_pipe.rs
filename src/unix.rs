@@ -1,10 +1,12 @@
 use crate::PipeReader;
 use crate::PipeWriter;
-use libc::c_int;
+
 use std::fs::File;
 use std::io;
-use std::mem::ManuallyDrop;
 use std::os::unix::prelude::*;
+
+use rustix::fd::OwnedFd;
+use rustix::pipe;
 
 // We need to atomically create pipes and set the CLOEXEC flag on them. This is
 // done with the pipe2() API. However, macOS doesn't support pipe2. There, all
@@ -12,47 +14,31 @@ use std::os::unix::prelude::*;
 // fork() in between. The following code is copied from the nix crate, where it
 // works but is deprecated.
 #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "haiku")))]
-fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
-    let mut fds: [c_int; 2] = [0; 2];
-    let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
-    if res != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok((fds[0], fds[1]))
+fn pipe2_cloexec() -> io::Result<(OwnedFd, OwnedFd)> {
+    let pipe = pipe::pipe_with(pipe::PipeFlags::CLOEXEC)?;
+    Ok(pipe)
 }
 
 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "haiku"))]
-fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
-    let mut fds: [c_int; 2] = [0; 2];
-    let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
-    if res != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    let res = unsafe { libc::fcntl(fds[0], libc::F_SETFD, libc::FD_CLOEXEC) };
-    if res != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    let res = unsafe { libc::fcntl(fds[1], libc::F_SETFD, libc::FD_CLOEXEC) };
-    if res != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok((fds[0], fds[1]))
+fn pipe2_cloexec() -> io::Result<(OwnedFd, OwnedFd)> {
+    use rustix::io::{fcntl_setfd, FdFlags};
+
+    let (left, right) = pipe::pipe()?;
+    fcntl_setfd(&left, FdFlags::CLOEXEC)?;
+    fcntl_setfd(&right, FdFlags::CLOEXEC)?;
+    Ok((left, right))
 }
 
 pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let (read_fd, write_fd) = pipe2_cloexec()?;
-    unsafe {
-        Ok((
-            PipeReader::from_raw_fd(read_fd),
-            PipeWriter::from_raw_fd(write_fd),
-        ))
-    }
+    Ok((
+        PipeReader::from(read_fd),
+        PipeWriter::from(write_fd),
+    ))
 }
 
-pub(crate) fn dup<F: AsRawFd>(wrapper: &F) -> io::Result<File> {
-    let fd = wrapper.as_raw_fd();
-    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
-    temp_file.try_clone()
+pub(crate) fn dup<F: AsFd>(wrapper: &F) -> io::Result<File> {
+    Ok(wrapper.as_fd().try_clone_to_owned()?.into())
 }
 
 impl IntoRawFd for PipeReader {
@@ -91,42 +77,36 @@ impl FromRawFd for PipeWriter {
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl From<PipeReader> for OwnedFd {
     fn from(pr: PipeReader) -> Self {
         pr.0.into()
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl AsFd for PipeReader {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl From<OwnedFd> for PipeReader {
     fn from(fd: OwnedFd) -> Self {
         PipeReader(fd.into())
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl From<PipeWriter> for OwnedFd {
     fn from(pw: PipeWriter) -> Self {
         pw.0.into()
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl AsFd for PipeWriter {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl From<OwnedFd> for PipeWriter {
     fn from(fd: OwnedFd) -> Self {
         PipeWriter(fd.into())
