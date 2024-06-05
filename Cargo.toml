@@ -14,12 +14,10 @@ edition = "2018"
 libc = "0.2.62"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.52.0", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security", "Win32_System_Threading"] }
+windows-sys = { version = "0.52.0", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security"] }
 
 [features]
-# Uses I/O safety features introduced in Rust 1.63
+# Integration with IO safety types like OwnedFd is now always enabled, and this
+# feature does nothing. When something like github.com/rust-lang/rfcs/pull/3486
+# lands, this feature will be deprecated.
 io_safety = []
-
-# Document `io_safety` conversions on docs.rs.
-[package.metadata.docs.rs]
-features = ["io_safety"]

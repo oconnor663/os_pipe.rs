@@ -116,17 +116,6 @@
 //! can reproduce the example above in a single line of code, with no
 //! risk of deadlocks and no risk of leaking [zombie
 //! children](https://en.wikipedia.org/wiki/Zombie_process).
-//!
-//! # Cargo features
-//!
-//! The `io_safety` feature is currently off by default but enabled for
-//! [docs.rs](https://docs.rs/os_pipe/latest/os_pipe/). It enables conversions to and from the
-//! [`OwnedFd`](https://doc.rust-lang.org/stable/std/os/unix/io/struct.OwnedFd.html) and
-//! [`BorrowedFd`](https://doc.rust-lang.org/stable/std/os/unix/io/struct.BorrowedFd.html) IO
-//! safety types (and their [Windows
-//! counterparts](https://doc.rust-lang.org/stable/std/os/windows/io/index.html)) introduced in
-//! Rust 1.63. Eventually these conversions will be available unconditionally and this feature will
-//! become a no-op.
 
 use std::fs::File;
 use std::io;
@@ -137,13 +126,15 @@ use std::process::Stdio;
 /// `PipeReader` implements `Into<Stdio>`, so you can pass it as an argument to
 /// `Command::stdin` to spawn a child process that reads from the pipe.
 #[derive(Debug)]
-pub struct PipeReader(File);
+pub struct PipeReader(
+    // We use std::fs::File here for two reasons: OwnedFd and OwnedHandle are platform-specific,
+    // and this gives us read/write/flush for free.
+    File,
+);
 
 impl PipeReader {
     pub fn try_clone(&self) -> io::Result<PipeReader> {
-        // Do *not* use File::try_clone here. It's buggy on windows. See
-        // comments on windows.rs::dup().
-        sys::dup(&self.0).map(PipeReader)
+        self.0.try_clone().map(PipeReader)
     }
 }
 
@@ -155,8 +146,7 @@ impl io::Read for PipeReader {
 
 impl<'a> io::Read for &'a PipeReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut file_ref = &self.0;
-        file_ref.read(buf)
+        (&self.0).read(buf)
     }
 }
 
@@ -176,9 +166,7 @@ pub struct PipeWriter(File);
 
 impl PipeWriter {
     pub fn try_clone(&self) -> io::Result<PipeWriter> {
-        // Do *not* use File::try_clone here. It's buggy on windows. See
-        // comments on windows.rs::dup().
-        sys::dup(&self.0).map(PipeWriter)
+        self.0.try_clone().map(PipeWriter)
     }
 }
 
@@ -194,13 +182,11 @@ impl io::Write for PipeWriter {
 
 impl<'a> io::Write for &'a PipeWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut file_ref = &self.0;
-        file_ref.write(buf)
+        (&self.0).write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        let mut file_ref = &self.0;
-        file_ref.flush()
+        (&self.0).flush()
     }
 }
 

@@ -111,14 +111,3 @@ Note that the [`duct`](https://github.com/oconnor663/duct.rs) crate
 can reproduce the example above in a single line of code, with no
 risk of deadlocks and no risk of leaking [zombie
 children](https://en.wikipedia.org/wiki/Zombie_process).
-
-## Cargo features
-
-The `io_safety` feature is currently off by default but enabled for
-[docs.rs](https://docs.rs/os_pipe/latest/os_pipe/). It enables conversions to and from the
-[`OwnedFd`](https://doc.rust-lang.org/stable/std/os/unix/io/struct.OwnedFd.html) and
-[`BorrowedFd`](https://doc.rust-lang.org/stable/std/os/unix/io/struct.BorrowedFd.html) IO
-safety types (and their [Windows
-counterparts](https://doc.rust-lang.org/stable/std/os/windows/io/index.html)) introduced in
-Rust 1.63. Eventually these conversions will be available unconditionally and this feature will
-become a no-op.

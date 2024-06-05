@@ -3,7 +3,6 @@ use crate::PipeWriter;
 use libc::c_int;
 use std::fs::File;
 use std::io;
-use std::mem::ManuallyDrop;
 use std::os::unix::prelude::*;
 
 // We need to atomically create pipes and set the CLOEXEC flag on them. This is
@@ -11,23 +10,36 @@ use std::os::unix::prelude::*;
 // we can do is call pipe() followed by fcntl(), and hope that no other threads
 // fork() in between. The following code is copied from the nix crate, where it
 // works but is deprecated.
-#[cfg(not(any(target_os = "ios", target_os = "visionos", target_os = "macos", target_os = "haiku")))]
-fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
+#[cfg(not(any(
+    target_os = "ios",
+    target_os = "visionos",
+    target_os = "macos",
+    target_os = "haiku"
+)))]
+fn pipe2_cloexec() -> io::Result<(OwnedFd, OwnedFd)> {
     let mut fds: [c_int; 2] = [0; 2];
     let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
     if res != 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok((fds[0], fds[1]))
+    unsafe { Ok((OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1]))) }
 }
 
-#[cfg(any(target_os = "ios", target_os = "visionos", target_os = "macos", target_os = "haiku"))]
-fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
+#[cfg(any(
+    target_os = "ios",
+    target_os = "visionos",
+    target_os = "macos",
+    target_os = "haiku"
+))]
+fn pipe2_cloexec() -> io::Result<(OwnedFd, OwnedFd)> {
     let mut fds: [c_int; 2] = [0; 2];
     let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
     if res != 0 {
         return Err(io::Error::last_os_error());
     }
+    // Wrap the fds immediately, so that we'll drop them and close them in the unlikely event that
+    // any of the following fcntls fails.
+    let owned_fds = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
     let res = unsafe { libc::fcntl(fds[0], libc::F_SETFD, libc::FD_CLOEXEC) };
     if res != 0 {
         return Err(io::Error::last_os_error());
@@ -36,23 +48,18 @@ fn pipe2_cloexec() -> io::Result<(c_int, c_int)> {
     if res != 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok((fds[0], fds[1]))
+    Ok(owned_fds)
 }
 
 pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     let (read_fd, write_fd) = pipe2_cloexec()?;
-    unsafe {
-        Ok((
-            PipeReader::from_raw_fd(read_fd),
-            PipeWriter::from_raw_fd(write_fd),
-        ))
-    }
+    Ok((read_fd.into(), write_fd.into()))
 }
 
 pub(crate) fn dup<F: AsRawFd>(wrapper: &F) -> io::Result<File> {
-    let fd = wrapper.as_raw_fd();
-    let temp_file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
-    temp_file.try_clone()
+    let borrowed = unsafe { BorrowedFd::borrow_raw(wrapper.as_raw_fd()) };
+    let owned = borrowed.try_clone_to_owned()?;
+    Ok(owned.into())
 }
 
 impl IntoRawFd for PipeReader {
@@ -70,6 +77,24 @@ impl AsRawFd for PipeReader {
 impl FromRawFd for PipeReader {
     unsafe fn from_raw_fd(fd: RawFd) -> PipeReader {
         PipeReader(File::from_raw_fd(fd))
+    }
+}
+
+impl From<PipeReader> for OwnedFd {
+    fn from(pr: PipeReader) -> Self {
+        pr.0.into()
+    }
+}
+
+impl AsFd for PipeReader {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.0.as_fd()
+    }
+}
+
+impl From<OwnedFd> for PipeReader {
+    fn from(fd: OwnedFd) -> Self {
+        PipeReader(fd.into())
     }
 }
 
@@ -91,42 +116,18 @@ impl FromRawFd for PipeWriter {
     }
 }
 
-#[cfg(feature = "io_safety")]
-impl From<PipeReader> for OwnedFd {
-    fn from(pr: PipeReader) -> Self {
-        pr.0.into()
-    }
-}
-
-#[cfg(feature = "io_safety")]
-impl AsFd for PipeReader {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        self.0.as_fd()
-    }
-}
-
-#[cfg(feature = "io_safety")]
-impl From<OwnedFd> for PipeReader {
-    fn from(fd: OwnedFd) -> Self {
-        PipeReader(fd.into())
-    }
-}
-
-#[cfg(feature = "io_safety")]
 impl From<PipeWriter> for OwnedFd {
     fn from(pw: PipeWriter) -> Self {
         pw.0.into()
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl AsFd for PipeWriter {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
     }
 }
 
-#[cfg(feature = "io_safety")]
 impl From<OwnedFd> for PipeWriter {
     fn from(fd: OwnedFd) -> Self {
         PipeWriter(fd.into())
