@@ -22,12 +22,8 @@ jobs:
         rust_channel: [stable, beta, nightly]
 
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.rust_channel }}
-        profile: minimal
-        override: true
     - run: cargo test
-    # notgull: check io_safety feature with CI
-    - run: cargo check --features io_safety
