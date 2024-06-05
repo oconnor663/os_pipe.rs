@@ -8,7 +8,7 @@ readme = "README.md"
 documentation = "https://docs.rs/os_pipe"
 license = "MIT"
 keywords = ["pipe", "pipe2", "createpipe", "dup"]
-edition = "2018"
+edition = "2021"
 
 [target.'cfg(not(windows))'.dependencies]
 libc = "0.2.62"
