@@ -232,7 +232,7 @@ pub fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
 /// [`Command::stdin`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stdin
 /// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stdin() -> io::Result<PipeReader> {
-    sys::dup(&io::stdin()).map(PipeReader)
+    sys::dup(io::stdin()).map(PipeReader::from)
 }
 
 /// Get a duplicated copy of the current process's standard output, as a
@@ -251,7 +251,7 @@ pub fn dup_stdin() -> io::Result<PipeReader> {
 /// [`Command::stderr`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stderr
 /// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stdout() -> io::Result<PipeWriter> {
-    sys::dup(&io::stdout()).map(PipeWriter)
+    sys::dup(io::stdout()).map(PipeWriter::from)
 }
 
 /// Get a duplicated copy of the current process's standard error, as a
@@ -270,7 +270,7 @@ pub fn dup_stdout() -> io::Result<PipeWriter> {
 /// [`Command::stderr`]: https://doc.rust-lang.org/std/process/struct.Command.html#method.stderr
 /// [`Stdio::inherit`]: https://doc.rust-lang.org/std/process/struct.Stdio.html#method.inherit
 pub fn dup_stderr() -> io::Result<PipeWriter> {
-    sys::dup(&io::stderr()).map(PipeWriter)
+    sys::dup(io::stderr()).map(PipeWriter::from)
 }
 
 #[cfg(test)]

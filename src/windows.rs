@@ -29,10 +29,8 @@ pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     }
 }
 
-pub(crate) fn dup<F: AsRawHandle>(wrapper: &F) -> io::Result<File> {
-    let borrowed = unsafe { BorrowedHandle::borrow_raw(wrapper.as_raw_handle()) };
-    let owned = borrowed.try_clone_to_owned()?;
-    Ok(owned.into())
+pub(crate) fn dup(handle: impl AsHandle) -> io::Result<OwnedHandle> {
+    handle.as_handle().try_clone_to_owned()
 }
 
 impl IntoRawHandle for PipeReader {

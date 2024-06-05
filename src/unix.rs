@@ -56,10 +56,8 @@ pub(crate) fn pipe() -> io::Result<(PipeReader, PipeWriter)> {
     Ok((read_fd.into(), write_fd.into()))
 }
 
-pub(crate) fn dup<F: AsRawFd>(wrapper: &F) -> io::Result<File> {
-    let borrowed = unsafe { BorrowedFd::borrow_raw(wrapper.as_raw_fd()) };
-    let owned = borrowed.try_clone_to_owned()?;
-    Ok(owned.into())
+pub(crate) fn dup(handle: impl AsFd) -> io::Result<OwnedFd> {
+    handle.as_fd().try_clone_to_owned()
 }
 
 impl IntoRawFd for PipeReader {
