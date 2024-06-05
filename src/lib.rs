@@ -121,6 +121,13 @@ use std::fs::File;
 use std::io;
 use std::process::Stdio;
 
+#[cfg(not(windows))]
+#[path = "unix.rs"]
+mod sys;
+#[cfg(windows)]
+#[path = "windows.rs"]
+mod sys;
+
 /// The reading end of a pipe, returned by [`pipe`](fn.pipe.html).
 ///
 /// `PipeReader` implements `Into<Stdio>`, so you can pass it as an argument to
@@ -265,13 +272,6 @@ pub fn dup_stdout() -> io::Result<PipeWriter> {
 pub fn dup_stderr() -> io::Result<PipeWriter> {
     sys::dup(&io::stderr()).map(PipeWriter)
 }
-
-#[cfg(not(windows))]
-#[path = "unix.rs"]
-mod sys;
-#[cfg(windows)]
-#[path = "windows.rs"]
-mod sys;
 
 #[cfg(test)]
 mod tests {
