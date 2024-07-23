@@ -11,6 +11,7 @@ use std::os::unix::prelude::*;
 // fork() in between. The following code is copied from the nix crate, where it
 // works but is deprecated.
 #[cfg(not(any(
+    target_os = "aix",
     target_os = "ios",
     target_os = "visionos",
     target_os = "macos",
@@ -26,6 +27,7 @@ fn pipe2_cloexec() -> io::Result<(OwnedFd, OwnedFd)> {
 }
 
 #[cfg(any(
+    target_os = "aix",
     target_os = "ios",
     target_os = "visionos",
     target_os = "macos",
