@@ -485,6 +485,6 @@ mod tests {
     #[test]
     fn test_debug() {
         let (reader, writer) = crate::pipe().unwrap();
-        format!("{:?} {:?}", reader, writer);
+        _ = format!("{:?} {:?}", reader, writer);
     }
 }
