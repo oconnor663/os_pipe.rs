@@ -76,7 +76,7 @@ impl AsRawFd for PipeReader {
 
 impl FromRawFd for PipeReader {
     unsafe fn from_raw_fd(fd: RawFd) -> PipeReader {
-        PipeReader(File::from_raw_fd(fd))
+        unsafe { PipeReader(File::from_raw_fd(fd)) }
     }
 }
 
@@ -112,7 +112,7 @@ impl AsRawFd for PipeWriter {
 
 impl FromRawFd for PipeWriter {
     unsafe fn from_raw_fd(fd: RawFd) -> PipeWriter {
-        PipeWriter(File::from_raw_fd(fd))
+        unsafe { PipeWriter(File::from_raw_fd(fd)) }
     }
 }
 

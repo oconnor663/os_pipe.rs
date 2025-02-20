@@ -47,7 +47,7 @@ impl AsRawHandle for PipeReader {
 
 impl FromRawHandle for PipeReader {
     unsafe fn from_raw_handle(handle: RawHandle) -> PipeReader {
-        PipeReader(File::from_raw_handle(handle))
+        unsafe { PipeReader(File::from_raw_handle(handle)) }
     }
 }
 
@@ -83,7 +83,7 @@ impl AsRawHandle for PipeWriter {
 
 impl FromRawHandle for PipeWriter {
     unsafe fn from_raw_handle(handle: RawHandle) -> PipeWriter {
-        PipeWriter(File::from_raw_handle(handle))
+        unsafe { PipeWriter(File::from_raw_handle(handle)) }
     }
 }
 
