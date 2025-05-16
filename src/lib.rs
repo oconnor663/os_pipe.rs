@@ -1,11 +1,12 @@
 //! A cross-platform library for opening OS pipes, like those from
-//! [`pipe`](https://man7.org/linux/man-pages/man2/pipe.2.html) on Linux
-//! or
+//! [`pipe`](https://man7.org/linux/man-pages/man2/pipe.2.html) on Linux or
 //! [`CreatePipe`](https://docs.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-createpipe)
 //! on Windows. The Rust standard library provides
-//! [`Stdio::piped`](https://doc.rust-lang.org/std/process/struct.Stdio.html#method.piped)
-//! for simple use cases involving child processes, but it doesn't
-//! support creating pipes directly. This crate fills that gap.
+//! [`Stdio::piped`](https://doc.rust-lang.org/std/process/struct.Stdio.html#method.piped) for
+//! simple use cases involving child processes, ~~but it doesn't support creating pipes directly.
+//! This crate fills that gap.~~ **Update:** Rust 1.87 added
+//! [`std::io::pipe`](https://doc.rust-lang.org/std/io/fn.pipe.html), so this crate is no longer
+//! needed except to support older compiler versions.
 //!
 //! - [Docs](https://docs.rs/os_pipe)
 //! - [Crate](https://crates.io/crates/os_pipe)
