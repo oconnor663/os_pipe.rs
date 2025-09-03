@@ -154,7 +154,7 @@ impl io::Read for PipeReader {
     }
 }
 
-impl<'a> io::Read for &'a PipeReader {
+impl io::Read for &PipeReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         (&self.0).read(buf)
     }
@@ -190,7 +190,7 @@ impl io::Write for PipeWriter {
     }
 }
 
-impl<'a> io::Write for &'a PipeWriter {
+impl io::Write for &PipeWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         (&self.0).write(buf)
     }
