@@ -15,7 +15,7 @@ rust-version = "1.63"
 libc = "0.2.62"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.60.2", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security"] }
+windows-sys = { version = ">=0.28, <=0.61", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security"] }
 
 [features]
 # Integration with IO safety types like OwnedFd is now always enabled, and this
