@@ -27,3 +27,5 @@ jobs:
       with:
         toolchain: ${{ matrix.rust_channel }}
     - run: cargo test
+    - run: cargo +nightly update -Zminimal-versions
+    - run: cargo test
